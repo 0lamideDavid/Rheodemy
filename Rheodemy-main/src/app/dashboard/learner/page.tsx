@@ -13,7 +13,8 @@ interface Course {
   currency: string;
   thumbnailUrl: string | null;
   instructor: { firstName: string; lastName: string };
-  lessons: { id: string; title: string; durationSec: number }[];
+  lessons?: { id: string; title: string; durationSec: number }[];
+  _count?: { lessons: number; enrollments: number };
 }
 
 const UNSPLASH_FALLBACK = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop';
@@ -195,7 +196,7 @@ export default function LearnerDashboard() {
                 <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary animate-pulse" /> 5.0</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {course.lessons.length} lesson{course.lessons.length !== 1 ? 's' : ''}</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(course.lessons?.length ?? course._count?.lessons ?? 0)} lesson{(course.lessons?.length ?? course._count?.lessons ?? 0) !== 1 ? 's' : ''}</span>
                   </div>
                   <div>{course.instructor.firstName} {course.instructor.lastName}</div>
                 </div>
