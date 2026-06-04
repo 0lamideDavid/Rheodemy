@@ -734,23 +734,28 @@ export default function CoursePlayerPage() {
             {courseType === 'video' && (
               <video 
                 ref={videoRef}
+                key={activeLesson?.id || 'default-vid'}
                 className="w-full h-full object-cover"
-                src={activeLesson?.contentUrl || "https://www.w3schools.com/html/mov_bbb.mp4"}
                 preload="auto"
                 playsInline
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
-              />
+              >
+                <source src={activeLesson?.contentUrl || "https://www.w3schools.com/html/mov_bbb.mp4"} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
             )}
 
             {courseType === 'audio' && (
               <div className="w-full h-full bg-[#111] flex flex-col items-center justify-center relative">
                 <audio 
                   ref={audioRef}
-                  src={activeLesson?.contentUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
+                  key={activeLesson?.id || 'default-aud'}
                   onTimeUpdate={handleTimeUpdate}
                   onEnded={() => setIsPlaying(false)}
-                />
+                >
+                  <source src={activeLesson?.contentUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"} type="audio/mpeg" />
+                </audio>
                 <div className={`w-32 h-32 rounded-full border border-primary/20 bg-primary/5 flex items-center justify-center mb-4 transition-transform duration-1000 ${isPlaying ? 'scale-110 shadow-[0_0_50px_rgba(0,212,200,0.2)]' : 'scale-100'}`}>
                   <Headphones className={`w-12 h-12 text-primary ${isPlaying ? 'animate-pulse' : ''}`} />
                 </div>
