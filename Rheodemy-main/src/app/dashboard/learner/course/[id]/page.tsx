@@ -105,6 +105,7 @@ export default function CoursePlayerPage() {
   const [isCourseLoading, setIsCourseLoading] = useState(true);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const activeLesson = course?.lessons?.[currentLessonIndex] || null;
+  const [expandedModules, setExpandedModules] = useState<string[]>([]);
 
   // ── ILP Session State ─────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -189,6 +190,14 @@ export default function CoursePlayerPage() {
     return () => clearInterval(pledgeInterval);
   }, [isPledging]);
 
+  // Auto-expand the active lesson's module when course loads or lesson changes
+  useEffect(() => {
+    if (course?.lessons && course.lessons.length > 0) {
+      const activeModule = course.lessons[currentLessonIndex]?.title.match(/^(Module\s+\d+):/i)?.[1] || "General Lessons";
+      setExpandedModules(prev => prev.includes(activeModule) ? prev : [...prev, activeModule]);
+    }
+  }, [course, currentLessonIndex]);
+
   // ── ILP Session Management ────────────────────────────────────────────────
   const startSession = useCallback(async () => {
     if (!token || !course) return;
@@ -258,6 +267,14 @@ export default function CoursePlayerPage() {
 
     // 2. Set index
     setCurrentLessonIndex(index);
+  };
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModules(prev => 
+      prev.includes(moduleId)
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
   };
 
   // Reload media when lesson index changes
@@ -993,11 +1010,13 @@ export default function CoursePlayerPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {groupedModules.map((module) => {
               const isModuleActive = module.id === activeModuleId;
+              const isModuleExpanded = expandedModules.includes(module.id);
               
               return (
                 <div key={module.id} className="border border-white/5 rounded-xl bg-white/[0.01] overflow-hidden transition-all duration-300">
                   {/* Module Header */}
                   <div 
+                    onClick={() => toggleModule(module.id)}
                     className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${
                       isModuleActive 
                         ? 'bg-primary/5 text-primary font-medium' 
@@ -1008,11 +1027,11 @@ export default function CoursePlayerPage() {
                       <BookOpen className={`w-4 h-4 ${isModuleActive ? 'text-primary' : 'text-muted'}`} />
                       <span className="font-semibold text-sm">{module.title}</span>
                     </div>
-                    <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isModuleActive ? 'rotate-90 text-primary' : 'text-muted'}`} />
+                    <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isModuleExpanded ? 'rotate-90 text-primary' : 'text-muted'}`} />
                   </div>
                   
                   {/* Module Lessons Dropdown */}
-                  {isModuleActive && (
+                  {isModuleExpanded && (
                     <div className="border-t border-white/5 p-2 bg-[#050505] space-y-1 animate-in slide-in-from-top-2 duration-300">
                       {module.lessons.map((lesson) => {
                         const isLessonActive = lesson.index === currentLessonIndex;
