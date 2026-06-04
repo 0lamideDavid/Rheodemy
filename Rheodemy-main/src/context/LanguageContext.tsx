@@ -47,6 +47,8 @@ export interface TranslationDict {
   authDescLogin: string;
   authDescSignup: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
   emailAddr: string;
   phoneNum: string;
   password: string;
@@ -181,6 +183,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "Enter your details to access your dashboard",
     authDescSignup: "Join Rheodemy and start your journey",
     fullName: "Full Name",
+    firstName: "First Name",
+    lastName: "Last Name",
     emailAddr: "Email Address",
     phoneNum: "Phone Number",
     password: "Password",
@@ -307,6 +311,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "Entrez vos coordonnées pour accéder à votre tableau de bord",
     authDescSignup: "Rejoignez Rheodemy et commencez votre voyage",
     fullName: "Nom complet",
+    firstName: "Prénom",
+    lastName: "Nom",
     emailAddr: "Adresse e-mail",
     phoneNum: "Numéro de téléphone",
     password: "Mot de passe",
@@ -433,6 +439,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "Insira seus dados para acessar seu painel",
     authDescSignup: "Junte-se à Rheodemy e comece sua jornada",
     fullName: "Nome Completo",
+    firstName: "Nome",
+    lastName: "Sobrenome",
     emailAddr: "Endereço de E-mail",
     phoneNum: "Número de Telefone",
     password: "Senha",
@@ -559,6 +567,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "Ingresa tus datos para acceder a tu panel",
     authDescSignup: "Únete a Rheodemy y comienza tu viaje",
     fullName: "Nombre completo",
+    firstName: "Nombre",
+    lastName: "Apellido",
     emailAddr: "Dirección de correo",
     phoneNum: "Número de teléfono",
     password: "Contraseña",
@@ -685,6 +695,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "أدخل بياناتك للوصول إلى لوحة التحكم الخاصة بك",
     authDescSignup: "انضم إلى ريوديمي وابدأ رحلتك",
     fullName: "الاسم الكامل",
+    firstName: "الاسم الأول",
+    lastName: "اسم العائلة",
     emailAddr: "عنوان البريد الإلكتروني",
     phoneNum: "رقم الهاتف",
     password: "كلمة المرور",
@@ -811,6 +823,8 @@ const translations: Record<LanguageCode, TranslationDict> = {
     authDescLogin: "Ingiza maelezo yako ili kufikia dashibodi yako",
     authDescSignup: "Jiunge na Rheodemy na uanze safari yako",
     fullName: "Majina Kamili",
+    firstName: "Jina la Kwanza",
+    lastName: "Jina la Mwisho",
     emailAddr: "Barua Pepe",
     phoneNum: "Nambari ya Simu",
     password: "Nywila",
