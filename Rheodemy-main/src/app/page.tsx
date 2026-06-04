@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, PlayCircle, Wallet, Layers, ShieldCheck, Sparkles, ChevronRight, BookOpen, Headphones } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function MarketingLandingPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [showDemoVideo, setShowDemoVideo] = useState(false);
 
   return (
@@ -19,11 +21,11 @@ export default function MarketingLandingPage() {
 
       {/* Navigation */}
       <header className="absolute top-0 inset-x-0 h-24 z-50 flex items-center justify-between px-6 md:px-12 max-w-7xl mx-auto w-full">
-        <Link href="/" className="flex items-center group">
+        <Link href={user ? `/dashboard/${user.role === "INSTRUCTOR" ? "creator" : "learner"}` : "/"} className="flex items-center group">
           <img src="/logo.png" alt="Rheodemy Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/auth" className="text-sm font-semibold text-muted hover:text-foreground transition-colors hidden sm:block">
+          <Link href="/auth?login=true" className="text-sm font-semibold text-muted hover:text-foreground transition-colors hidden sm:block">
             {t.logIn}
           </Link>
           <Link href="/become-creator" className="text-sm font-bold text-foreground bg-white/5 hover:bg-white/10 border border-white/10 px-5 py-2.5 rounded-full transition-all flex items-center gap-2">

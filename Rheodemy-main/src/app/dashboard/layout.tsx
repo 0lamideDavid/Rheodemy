@@ -1,11 +1,17 @@
 "use client";
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sparkles, User, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+  
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Initialize from path to avoid hydration mismatch
   const [role, setRole] = useState<'creator' | 'learner'>(
@@ -25,6 +31,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       if (stored) setRole(stored);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
 
   const isCreator = role === 'creator';
 
@@ -85,8 +106,31 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Link href="/coming-soon" className="text-sm font-medium text-muted hover:text-foreground transition-colors hidden sm:block">
                 Settings
               </Link>
-              <div className="h-8 w-8 rounded-full overflow-hidden border border-white/10">
-                <img src={isCreator ? "https://i.pravatar.cc/150?u=creator" : "https://i.pravatar.cc/150?u=learner"} alt="Profile" className="w-full h-full object-cover" />
+              
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <User className="w-5 h-5 text-foreground/80" />
+                </button>
+                
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-[#0A0A0A] border border-white/10 shadow-2xl py-1 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/5">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        Account Options
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Log out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

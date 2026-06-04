@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ArrowRight, UploadCloud, Banknote, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Wallet, PlayCircle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
-export default function BecomeCreatorPage() {
+export default function BecomeLearnerPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,7 +26,7 @@ export default function BecomeCreatorPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, email, password, role: "INSTRUCTOR" }),
+        body: JSON.stringify({ firstName, lastName, email, password, role: "STUDENT" }),
       });
 
       const data = await res.json();
@@ -39,7 +39,7 @@ export default function BecomeCreatorPage() {
       const token = data.data?.token || data.token;
 
       login(token, user);
-      router.push('/dashboard/creator');
+      router.push('/dashboard/learner');
     } catch (err: any) {
       setError(err.message || "An error occurred");
       setIsSubmitting(false);
@@ -66,33 +66,33 @@ export default function BecomeCreatorPage() {
           <div className="space-y-8">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-6 border border-primary/20">
-                <Sparkles className="w-4 h-4" /> Creator Program
+                <BookOpen className="w-4 h-4" /> Learner Program
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-                Turn your knowledge into streams of income.
+                Learn dynamically. Pay by the second.
               </h1>
               <p className="text-lg text-muted max-w-md leading-relaxed">
-                Join the world's first Web Monetization learning platform. Upload your content once, and get paid in real-time for every second a student learns.
+                Join Rheodemy to experience courses without the upfront costs. Stream payments only when you're actively learning.
               </p>
             </div>
 
             <div className="space-y-6 pt-4 border-t border-white/5">
               <div className="flex gap-4">
                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                  <Banknote className="w-5 h-5 text-primary" />
+                  <Wallet className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Real-time Streaming Payments</h3>
-                  <p className="text-sm text-muted mt-1">Get paid instantly via Interledger Protocol. No 30-day payout waits.</p>
+                  <h3 className="font-semibold text-foreground">Pay-As-You-Go</h3>
+                  <p className="text-sm text-muted mt-1">Connect your Interledger wallet and pay precisely for the time you learn.</p>
                 </div>
               </div>
               <div className="flex gap-4">
                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                  <UploadCloud className="w-5 h-5 text-primary" />
+                  <PlayCircle className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Omni-Content Support</h3>
-                  <p className="text-sm text-muted mt-1">Monetize Videos, Ebooks, and Audio Podcasts all in one place.</p>
+                  <h3 className="font-semibold text-foreground">Explore Freely</h3>
+                  <p className="text-sm text-muted mt-1">Browse and sample thousands of courses without committing to hefty subscription fees.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -100,8 +100,8 @@ export default function BecomeCreatorPage() {
                   <ShieldCheck className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Retain 80% of Revenue</h3>
-                  <p className="text-sm text-muted mt-1">Take home the lion's share of your earnings with our transparent split.</p>
+                  <h3 className="font-semibold text-foreground">Secure Learning</h3>
+                  <p className="text-sm text-muted mt-1">Your payments are paused the moment you stop watching or reading.</p>
                 </div>
               </div>
             </div>
@@ -111,8 +111,8 @@ export default function BecomeCreatorPage() {
           <div className="bg-[#0A0A0A] p-8 md:p-10 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px]" />
             
-            <h2 className="text-2xl font-bold mb-2 relative z-10">Creator Application</h2>
-            <p className="text-muted text-sm mb-8 relative z-10">Create your account to become a creator.</p>
+            <h2 className="text-2xl font-bold mb-2 relative z-10">Learner Account</h2>
+            <p className="text-muted text-sm mb-8 relative z-10">Create your account to start learning today.</p>
 
             {error && (
               <div className="p-3 mb-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm text-center relative z-10">
@@ -177,17 +177,17 @@ export default function BecomeCreatorPage() {
                   className="w-full bg-primary text-black font-bold text-base py-4 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
-                    <span className="animate-pulse flex items-center gap-2">Registering Profile...</span>
+                    <span className="animate-pulse flex items-center gap-2">Creating Account...</span>
                   ) : (
                     <>
-                      Register as Creator
+                      Register as Learner
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </button>
               </div>
               <p className="text-xs text-center text-muted mt-4">
-                By registering, you agree to the Rheodemy Terms of Service and the 80/15/5 revenue split.
+                By registering, you agree to the Rheodemy Terms of Service.
               </p>
             </form>
           </div>

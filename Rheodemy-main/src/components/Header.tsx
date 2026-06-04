@@ -3,22 +3,16 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export function Header() {
   const pathname = usePathname();
-  const [homeUrl, setHomeUrl] = useState("/dashboard/learner");
+  const { user } = useAuth();
 
-  useEffect(() => {
-    const role = localStorage.getItem('rheodemy_role');
-    if (role === 'creator') {
-      setHomeUrl('/dashboard/creator');
-    } else {
-      setHomeUrl('/dashboard/learner');
-    }
-  }, []);
+  const homeUrl = user ? `/dashboard/${user.role === 'INSTRUCTOR' ? 'creator' : 'learner'}` : '/';
   
   // Don't show top-left header on the very first screen, inside the dashboard, or creator signup
-  if (pathname === "/" || pathname?.startsWith("/dashboard") || pathname === "/become-creator" || pathname === "/onboarding") return null;
+  if (pathname === "/" || pathname?.startsWith("/dashboard") || pathname === "/become-creator" || pathname === "/become-learner" || pathname === "/onboarding") return null;
   
   return (
     <header className="absolute top-0 left-0 w-full p-4 sm:p-6 flex items-center z-50 pointer-events-none">

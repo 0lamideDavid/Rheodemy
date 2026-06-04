@@ -13,7 +13,7 @@ export default function RoleSelection() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('rheodemy_role', role);
     }
-    router.push("/auth?role=" + role);
+    router.push(role === "creator" ? "/become-creator" : "/become-learner");
   };
 
   return (
