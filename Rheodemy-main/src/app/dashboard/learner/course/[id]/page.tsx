@@ -703,6 +703,16 @@ export default function CoursePlayerPage() {
     ? (course.lessons[currentLessonIndex].title.match(/^(Module\s+\d+):/i)?.[1] || "General Lessons")
     : null;
 
+  // Dynamic placeholders (posters) for each lesson
+  const lessonPosters = [
+    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=600&auto=format&fit=crop", // coding laptop
+    "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=600&auto=format&fit=crop", // code editor
+    "https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=600&auto=format&fit=crop", // wireframe/ux
+    "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=600&auto=format&fit=crop", // matrix neon code
+    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=600&auto=format&fit=crop", // cyber security binary
+  ];
+  const posterUrl = lessonPosters[currentLessonIndex % lessonPosters.length];
+
   return (
     <div className="min-h-screen bg-[#050505] text-foreground flex flex-col relative z-10 font-sans">
       
@@ -738,6 +748,7 @@ export default function CoursePlayerPage() {
                 className="w-full h-full object-cover"
                 preload="auto"
                 playsInline
+                poster={posterUrl}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
               >
@@ -876,7 +887,7 @@ export default function CoursePlayerPage() {
                     min="0"
                     max="100"
                     step="0.1"
-                    value={progress}
+                    value={isNaN(progress) ? 0 : progress}
                     onChange={(e) => {
                       const percentage = Number(e.target.value) / 100;
                       if (mediaRef.current) {
