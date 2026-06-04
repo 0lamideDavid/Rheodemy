@@ -127,14 +127,17 @@ async function ensureDefaultUsers() {
     const coursesWithoutThumbnails = await prisma.course.count({
       where: { instructorId: instructor.id, thumbnailUrl: null }
     });
-    if (coursesWithoutThumbnails > 0) {
-      logger.info("🗑️ Re-seeding instructor courses to apply new featured images...");
+    const outdatedLessons = await prisma.lesson.count({
+      where: { contentUrl: { contains: "BigBuckBunny" } }
+    });
+    if (coursesWithoutThumbnails > 0 || outdatedLessons > 0) {
+      logger.info("🗑️ Re-seeding instructor courses to apply new featured images & reliable videos...");
       await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
     }
 
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
     if (courseCount === 0) {
-      const dummyVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+      const dummyVideoUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
       
       // Course 1
       const c1 = await prisma.course.create({
