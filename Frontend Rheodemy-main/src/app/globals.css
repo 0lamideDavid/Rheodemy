@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --font-serif: var(--font-eb-garamond);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-cormorant: var(--font-cormorant-garamond);
+}
+
+:root {
+  /* Premium Dark Mode: Deep Off-Blacks */
+  --background: #0A0A0A;
+  --foreground: #FAFAFA;
+  --primary: #00D4C8;
+  --primary-foreground: #000000;
+  --card: #111111;
+  --border: #27272A;
+  --muted: #A1A1AA;
+  --destructive: #EF4444;
+  --warning: #F59E0B;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #F8F9FC;
+    --foreground: #0D1B3E;
+    
+    --primary: #00D4C8;
+    --primary-foreground: #FFFFFF;
+    
+    --card: #FFFFFF;
+    
+    --muted: #6B7A99;
+    --border: #E2E8F0;
+    
+    --destructive: #FF4D6A;
+    --warning: #FFB347;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Glassmorphism / Card utility */
+.glass {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+/* Animated gradient background */
+.animated-bg {
+  background: linear-gradient(-45deg, #0D1B3E, #112244, #1E2D4A, #0D1B3E);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@media (prefers-color-scheme: light) {
+  .animated-bg {
+    background: linear-gradient(-45deg, #F8F9FC, #E2E8F0, #F8F9FC, #FFFFFF);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+  }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

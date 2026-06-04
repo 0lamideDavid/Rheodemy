@@ -1,0 +1,62 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono, EB_Garamond, JetBrains_Mono, Cormorant_Garamond } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const ebGaramond = EB_Garamond({
+  variable: "--font-eb-garamond",
+  subsets: ["latin"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant-garamond",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+export const metadata: Metadata = {
+  title: "Rheodemy | Learning without borders",
+  description: "A pay-as-you-learn education marketplace for emerging markets.",
+};
+
+import { Header } from "@/components/Header";
+import { LanguageProvider } from "@/context/LanguageContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { ParticleBackground } from "@/components/ParticleBackground";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} ${ebGaramond.variable} ${jetbrainsMono.variable} ${cormorantGaramond.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col text-foreground relative bg-[#050505]">
+        <AuthProvider>
+          <LanguageProvider>
+            <ParticleBackground />
+            <Header />
+            {children}
+          </LanguageProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
