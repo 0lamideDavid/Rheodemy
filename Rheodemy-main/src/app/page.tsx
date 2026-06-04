@@ -20,6 +20,17 @@ export default function MarketingLandingPage() {
     }
   }, [user, router]);
 
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050505] text-foreground">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent"></div>
+          <p className="text-sm text-foreground/40 font-medium">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-transparent text-foreground flex flex-col relative overflow-hidden font-sans selection:bg-primary/30">
       
@@ -30,7 +41,7 @@ export default function MarketingLandingPage() {
 
       {/* Navigation */}
       <header className="absolute top-0 inset-x-0 h-24 z-50 flex items-center justify-between px-6 md:px-12 max-w-7xl mx-auto w-full">
-        <Link href={user ? `/dashboard/${user.role === "CREATOR" ? "creator" : "learner"}` : "/"} className="flex items-center group">
+        <Link href="/" className="flex items-center group">
           <img src="/logo.png" alt="Rheodemy Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
