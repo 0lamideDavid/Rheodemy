@@ -103,6 +103,8 @@ export default function CoursePlayerPage() {
   // ── API Data State ────────────────────────────────────────────────────────
   const [course, setCourse] = useState<CourseData | null>(null);
   const [isCourseLoading, setIsCourseLoading] = useState(true);
+  const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  const activeLesson = course?.lessons?.[currentLessonIndex] || null;
 
   // ── ILP Session State ─────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function CoursePlayerPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const courseType = course?.type || (course?.lessons?.[0]?.contentUrl?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio');
+  const courseType = course?.type || ((activeLesson?.contentUrl || course?.lessons?.[0]?.contentUrl)?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio');
   const mediaRef = courseType === 'audio' ? audioRef : videoRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -197,7 +199,7 @@ export default function CoursePlayerPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ courseId: course.id }),
+        body: JSON.stringify({ courseId: course.id, lessonId: activeLesson?.id }),
       });
       const data = await res.json();
       const newSessionId = data.data?.sessionId || data.sessionId;
@@ -222,7 +224,7 @@ export default function CoursePlayerPage() {
     } catch (err) {
       console.error('[CoursePlayer] Failed to start session:', err);
     }
-  }, [token, course]);
+  }, [token, course, activeLesson]);
 
   const endSession = useCallback(async () => {
     if (!sessionId || !token) return;
@@ -241,6 +243,29 @@ export default function CoursePlayerPage() {
       setSessionId(null);
     }
   }, [sessionId, token]);
+
+  const selectLesson = async (index: number) => {
+    if (index === currentLessonIndex) return;
+
+    // 1. Pause player & end session if active
+    if (isPlaying) {
+      if (mediaRef.current) {
+        mediaRef.current.pause();
+      }
+      setIsPlaying(false);
+      await endSession();
+    }
+
+    // 2. Set index
+    setCurrentLessonIndex(index);
+  };
+
+  // Reload media when lesson index changes
+  useEffect(() => {
+    if (mediaRef.current) {
+      mediaRef.current.load();
+    }
+  }, [currentLessonIndex]);
 
   // End session on component unmount
   useEffect(() => {
@@ -658,7 +683,7 @@ export default function CoursePlayerPage() {
               <video 
                 ref={videoRef}
                 className="w-full h-full object-cover"
-                src="https://www.w3schools.com/html/mov_bbb.mp4"
+                src={activeLesson?.contentUrl || "https://www.w3schools.com/html/mov_bbb.mp4"}
                 preload="auto"
                 playsInline
                 onTimeUpdate={handleTimeUpdate}
@@ -670,7 +695,7 @@ export default function CoursePlayerPage() {
               <div className="w-full h-full bg-[#111] flex flex-col items-center justify-center relative">
                 <audio 
                   ref={audioRef}
-                  src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                  src={activeLesson?.contentUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
                   onTimeUpdate={handleTimeUpdate}
                   onEnded={() => setIsPlaying(false)}
                 />
@@ -851,7 +876,7 @@ export default function CoursePlayerPage() {
             
             {/* Course Title & Instructor */}
             <div className="space-y-4">
-              <h2 className="text-3xl font-bold tracking-tight">1. {(course as any).modules[0].title}</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{activeLesson?.title || course?.title}</h2>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
                 <div className="flex items-center gap-4 text-sm text-muted">
                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-xs">{course?.instructor?.firstName?.[0]}</div>
@@ -931,30 +956,31 @@ export default function CoursePlayerPage() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {((course as any).modules || []).map((module: any, index: number) => (
+            {(course?.lessons || []).map((lesson: any, index: number) => (
               <div 
-                key={module.id} 
+                key={lesson.id} 
+                onClick={() => selectLesson(index)}
                 className={`p-3 rounded-lg flex gap-4 cursor-pointer group transition-colors ${
-                  index === 0 
+                  index === currentLessonIndex 
                     ? 'bg-primary/10 border border-primary/20' 
                     : 'border border-transparent hover:border-white/5 hover:bg-white/[0.02]'
                 }`}
               >
                  <div className="mt-1">
-                   {index === 0 ? (
+                   {index === currentLessonIndex ? (
                      <CheckCircle2 className="w-4 h-4 text-primary" />
                    ) : (
                      <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-white/40 flex items-center justify-center text-[8px] text-muted">
-                       {module.id}
+                       {index + 1}
                      </div>
                    )}
                  </div>
-                 <div>
-                   <h4 className={`text-sm font-medium ${index === 0 ? 'text-primary' : 'text-foreground group-hover:text-white transition-colors'}`}>
-                     {module.id}. {module.title}
+                 <div className="flex-1 min-w-0">
+                   <h4 className={`text-sm font-medium truncate ${index === currentLessonIndex ? 'text-primary' : 'text-foreground group-hover:text-white transition-colors'}`}>
+                     {lesson.title}
                    </h4>
                    <p className="text-xs text-muted font-mono mt-1">
-                     {module.duration} {index === 0 ? '• Playing' : ''}
+                     {Math.floor(lesson.durationSec / 60)}:{(lesson.durationSec % 60).toString().padStart(2, '0')} {index === currentLessonIndex ? '• Playing' : ''}
                    </p>
                  </div>
               </div>
