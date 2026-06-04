@@ -13,7 +13,7 @@
     "seed": "prisma db seed"
   },
   "prisma": {
-    "seed": "node_modules/.bin/ts-node src/prisma/seed.ts"
+    "seed": "node dist/prisma/seed.js"
   },
   "keywords": [
     "edtech",
