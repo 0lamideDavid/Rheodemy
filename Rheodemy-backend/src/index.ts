@@ -123,7 +123,15 @@ async function ensureDefaultUsers() {
       logger.info("👤 Auto-created default student user & wallet");
     }
 
-    // 4. Create default courses for instructor if none exist
+    // 4. Create default courses for instructor if none exist (or recreate if thumbnails are missing)
+    const coursesWithoutThumbnails = await prisma.course.count({
+      where: { instructorId: instructor.id, thumbnailUrl: null }
+    });
+    if (coursesWithoutThumbnails > 0) {
+      logger.info("🗑️ Re-seeding instructor courses to apply new featured images...");
+      await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
+    }
+
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
     if (courseCount === 0) {
       const dummyVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
@@ -137,6 +145,7 @@ async function ensureDefaultUsers() {
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
@@ -158,6 +167,7 @@ async function ensureDefaultUsers() {
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
@@ -179,6 +189,7 @@ async function ensureDefaultUsers() {
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1677442136019-21780efad99a?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
@@ -191,7 +202,7 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      logger.info("👤 Auto-created 3 default courses for instructor");
+      logger.info("👤 Auto-created 3 default courses for instructor with featured images");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
