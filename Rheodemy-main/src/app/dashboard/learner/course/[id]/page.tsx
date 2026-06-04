@@ -113,7 +113,7 @@ export default function CoursePlayerPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const courseType = course?.type || ((activeLesson?.contentUrl || course?.lessons?.[0]?.contentUrl)?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio');
+  const courseType = (course?.type || ((activeLesson?.contentUrl || course?.lessons?.[0]?.contentUrl)?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio')) as 'video' | 'audio' | 'ebook';
   const mediaRef = courseType === 'audio' ? audioRef : videoRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -651,6 +651,41 @@ export default function CoursePlayerPage() {
     );
   }
 
+  // Group lessons by module dynamically
+  const modulesMap: Record<string, { id: string; title: string; lessons: (CourseLesson & { index: number })[] }> = {};
+  
+  (course?.lessons || []).forEach((lesson, idx) => {
+    const match = lesson.title.match(/^(Module\s+\d+):\s*(.*)$/i);
+    let moduleKey = "General Lessons";
+    let lessonTitle = lesson.title;
+    
+    if (match) {
+      moduleKey = match[1];
+      lessonTitle = match[2];
+    }
+    
+    if (!modulesMap[moduleKey]) {
+      modulesMap[moduleKey] = {
+        id: moduleKey,
+        title: moduleKey,
+        lessons: []
+      };
+    }
+    
+    modulesMap[moduleKey].lessons.push({
+      ...lesson,
+      title: lessonTitle,
+      index: idx
+    });
+  });
+  
+  const groupedModules = Object.values(modulesMap);
+
+  // Determine active module based on current playing lesson
+  const activeModuleId = course?.lessons?.[currentLessonIndex] 
+    ? (course.lessons[currentLessonIndex].title.match(/^(Module\s+\d+):/i)?.[1] || "General Lessons")
+    : null;
+
   return (
     <div className="min-h-screen bg-[#050505] text-foreground flex flex-col relative z-10 font-sans">
       
@@ -679,7 +714,7 @@ export default function CoursePlayerPage() {
         <div className="flex-1 flex flex-col">
           <div ref={containerRef} className="w-full aspect-video bg-black relative group cursor-pointer" onClick={togglePlay}>
             
-            {course.type === 'video' && (
+            {courseType === 'video' && (
               <video 
                 ref={videoRef}
                 className="w-full h-full object-cover"
@@ -691,7 +726,7 @@ export default function CoursePlayerPage() {
               />
             )}
 
-            {course.type === 'audio' && (
+            {courseType === 'audio' && (
               <div className="w-full h-full bg-[#111] flex flex-col items-center justify-center relative">
                 <audio 
                   ref={audioRef}
@@ -710,7 +745,7 @@ export default function CoursePlayerPage() {
               </div>
             )}
 
-            {course.type === 'ebook' && (
+            {courseType === 'ebook' && (
               <div className="w-full h-full bg-[#FAFAFA] text-[#1A1A1A] p-8 sm:p-12 overflow-y-auto relative cursor-auto" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Paused Overlay */}
@@ -785,7 +820,7 @@ export default function CoursePlayerPage() {
             )}
             
             {/* Large Center Play Button */}
-            {!isPlaying && course.type !== 'ebook' && (
+            {!isPlaying && courseType !== 'ebook' && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
                 <button 
                   onClick={(e) => {
@@ -800,7 +835,7 @@ export default function CoursePlayerPage() {
             )}
             
             {/* Custom Premium Controls (Hidden for Ebooks) */}
-            {course.type !== 'ebook' && (
+            {courseType !== 'ebook' && (
               <div 
                 className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-6 pt-24 transition-opacity duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
                 onClick={(e) => e.stopPropagation()}
@@ -822,7 +857,7 @@ export default function CoursePlayerPage() {
                     value={progress}
                     onChange={(e) => {
                       const percentage = Number(e.target.value) / 100;
-                      if (mediaRef.current && course.type !== 'ebook') {
+                      if (mediaRef.current) {
                         mediaRef.current.currentTime = percentage * mediaRef.current.duration;
                         setProgress(Number(e.target.value));
                       }
@@ -955,36 +990,68 @@ export default function CoursePlayerPage() {
             <h3 className="font-semibold text-sm uppercase tracking-wider text-foreground">{t.courseModules}</h3>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {(course?.lessons || []).map((lesson: any, index: number) => (
-              <div 
-                key={lesson.id} 
-                onClick={() => selectLesson(index)}
-                className={`p-3 rounded-lg flex gap-4 cursor-pointer group transition-colors ${
-                  index === currentLessonIndex 
-                    ? 'bg-primary/10 border border-primary/20' 
-                    : 'border border-transparent hover:border-white/5 hover:bg-white/[0.02]'
-                }`}
-              >
-                 <div className="mt-1">
-                   {index === currentLessonIndex ? (
-                     <CheckCircle2 className="w-4 h-4 text-primary" />
-                   ) : (
-                     <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-white/40 flex items-center justify-center text-[8px] text-muted">
-                       {index + 1}
-                     </div>
-                   )}
-                 </div>
-                 <div className="flex-1 min-w-0">
-                   <h4 className={`text-sm font-medium truncate ${index === currentLessonIndex ? 'text-primary' : 'text-foreground group-hover:text-white transition-colors'}`}>
-                     {lesson.title}
-                   </h4>
-                   <p className="text-xs text-muted font-mono mt-1">
-                     {Math.floor(lesson.durationSec / 60)}:{(lesson.durationSec % 60).toString().padStart(2, '0')} {index === currentLessonIndex ? '• Playing' : ''}
-                   </p>
-                 </div>
-              </div>
-            ))}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {groupedModules.map((module) => {
+              const isModuleActive = module.id === activeModuleId;
+              
+              return (
+                <div key={module.id} className="border border-white/5 rounded-xl bg-white/[0.01] overflow-hidden transition-all duration-300">
+                  {/* Module Header */}
+                  <div 
+                    className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${
+                      isModuleActive 
+                        ? 'bg-primary/5 text-primary font-medium' 
+                        : 'text-foreground hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BookOpen className={`w-4 h-4 ${isModuleActive ? 'text-primary' : 'text-muted'}`} />
+                      <span className="font-semibold text-sm">{module.title}</span>
+                    </div>
+                    <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isModuleActive ? 'rotate-90 text-primary' : 'text-muted'}`} />
+                  </div>
+                  
+                  {/* Module Lessons Dropdown */}
+                  {isModuleActive && (
+                    <div className="border-t border-white/5 p-2 bg-[#050505] space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      {module.lessons.map((lesson) => {
+                        const isLessonActive = lesson.index === currentLessonIndex;
+                        
+                        return (
+                          <div 
+                            key={lesson.id} 
+                            onClick={() => selectLesson(lesson.index)}
+                            className={`p-3 rounded-lg flex gap-3 cursor-pointer group transition-colors ${
+                              isLessonActive 
+                                ? 'bg-primary/10 border border-primary/20' 
+                                : 'border border-transparent hover:border-white/5 hover:bg-white/[0.02]'
+                            }`}
+                          >
+                            <div className="mt-0.5">
+                              {isLessonActive ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                              ) : (
+                                <div className="w-3.5 h-3.5 rounded-full border border-white/20 group-hover:border-white/40 flex items-center justify-center text-[7px] text-muted">
+                                  {lesson.order}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`text-xs font-medium truncate ${isLessonActive ? 'text-primary' : 'text-muted group-hover:text-white transition-colors'}`}>
+                                {lesson.title}
+                              </h4>
+                              <p className="text-[10px] text-muted font-mono mt-0.5">
+                                {Math.floor(lesson.durationSec / 60)}:{(lesson.durationSec % 60).toString().padStart(2, '0')} {isLessonActive ? '• Playing' : ''}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
