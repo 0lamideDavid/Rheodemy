@@ -38,7 +38,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     // Derive role from AuthContext user
-    if (user?.role === 'INSTRUCTOR') setRole('creator');
+    if (user?.role === 'CREATOR') setRole('creator');
     else setRole('learner');
   }, [user]);
 

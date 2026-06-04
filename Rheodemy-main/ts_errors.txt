@@ -1,0 +1,17 @@
+src/app/dashboard/learner/course/[id]/page.tsx(115,20): error TS2367: This comparison appears to be unintentional because the types '"video"' and '"audio"' have no overlap.
+src/app/dashboard/learner/course/[id]/page.tsx(262,9): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(280,60): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(285,22): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(287,9): error TS2304: Cannot find name 'setStreamedSeconds'.
+src/app/dashboard/learner/course/[id]/page.tsx(287,28): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/dashboard/learner/course/[id]/page.tsx(298,18): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(312,9): error TS2367: This comparison appears to be unintentional because the types '"video"' and '"ebook"' have no overlap.
+src/app/dashboard/learner/course/[id]/page.tsx(494,84): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(509,83): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(513,62): error TS2322: Type '{ firstName: string; lastName: string; }' is not assignable to type 'ReactNode'.
+src/app/dashboard/learner/course/[id]/page.tsx(513,63): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(517,78): error TS18047: 'course' is possibly 'null'.
+src/app/dashboard/learner/course/[id]/page.tsx(856,121): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{ firstName: string; lastName: string; }'.
+  Property '0' does not exist on type '{ firstName: string; lastName: string; }'.
+src/app/dashboard/learner/course/[id]/page.tsx(857,65): error TS2322: Type '{ firstName: string; lastName: string; }' is not assignable to type 'ReactNode'.
+src/app/dashboard/wallet/page.tsx(41,9): error TS2367: This comparison appears to be unintentional because the types '"LEARNER" | "CREATOR" | null | undefined' and '"INSTRUCTOR"' have no overlap.

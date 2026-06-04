@@ -27,6 +27,9 @@ interface CourseData {
   thumbnailUrl: string | null;
   instructor: { firstName: string; lastName: string };
   lessons: CourseLesson[];
+  type?: 'video' | 'audio' | 'ebook';
+  rate?: number;
+  modules?: any[];
 }
 
 const mockCourses = {
@@ -108,7 +111,7 @@ export default function CoursePlayerPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const courseType = course?.lessons?.[0]?.contentUrl?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'video';
+  const courseType = course?.type || (course?.lessons?.[0]?.contentUrl?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio');
   const mediaRef = courseType === 'audio' ? audioRef : videoRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -144,6 +147,7 @@ export default function CoursePlayerPage() {
   const [hasVoted, setHasVoted] = useState(false);
   const [isPledging, setIsPledging] = useState(false);
   const [pledgedAmount, setPledgedAmount] = useState<number>(12.50);
+  const [streamedSeconds, setStreamedSeconds] = useState(0);
 
   // ── Fetch Course Data ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -256,7 +260,7 @@ export default function CoursePlayerPage() {
   };
 
   useEffect(() => {
-    if (course.type === 'ebook' && isPlaying && !isPageCostCapped && isPageNew) {
+    if (course?.type === 'ebook' && isPlaying && !isPageCostCapped && isPageNew) {
       // Initialize activity listeners
       resetActivityTimer();
       window.addEventListener('mousemove', resetActivityTimer);
@@ -274,12 +278,12 @@ export default function CoursePlayerPage() {
         window.removeEventListener('click', resetActivityTimer);
       };
     }
-  }, [isPlaying, currentPage, isPageCostCapped, isPageNew, course.type]);
+  }, [isPlaying, currentPage, isPageCostCapped, isPageNew, course?.type]);
 
   // Ebook billing increment interval
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isPlaying && course.type === 'ebook' && isPageNew && !isPageCostCapped && !isReaderIdle) {
+    if (isPlaying && course?.type === 'ebook' && isPageNew && !isPageCostCapped && !isReaderIdle) {
       interval = setInterval(() => {
         setStreamedSeconds(prev => prev + 1);
         setProgress(prev => Math.min(prev + 0.22, 100)); // fake progress for page
@@ -292,7 +296,7 @@ export default function CoursePlayerPage() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, course.type, currentPage, isPageNew, isPageCostCapped, isReaderIdle]);
+  }, [isPlaying, course?.type, currentPage, isPageNew, isPageCostCapped, isReaderIdle]);
 
   const toggleFullscreen = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -488,7 +492,7 @@ export default function CoursePlayerPage() {
               <ArrowLeft className="w-4 h-4 text-muted hover:text-foreground transition-colors" />
             </Link>
             <div className="h-4 w-px bg-white/10" />
-            <h1 className="font-medium text-sm text-foreground truncate max-w-sm">{course.title}</h1>
+            <h1 className="font-medium text-sm text-foreground truncate max-w-sm">{course?.title}</h1>
           </div>
           <div className="bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
             {t.preRelease}
@@ -503,15 +507,15 @@ export default function CoursePlayerPage() {
             {/* Creator info & Header */}
             <div className="space-y-4 text-center">
               <span className="text-xs uppercase tracking-widest text-primary font-bold">{t.preReleaseCourse}</span>
-              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">{course.title}</h2>
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">{course?.title}</h2>
               <p className="text-sm text-muted max-w-lg mx-auto leading-relaxed">{(course as any).description}</p>
               
               <div className="flex items-center justify-center gap-4 text-xs text-muted/80 pt-2">
-                <span>By <strong className="text-foreground">{course.instructor}</strong></span>
+                <span>By <strong className="text-foreground">{course?.instructor?.firstName} {course?.instructor?.lastName}</strong></span>
                 <span>•</span>
                 <span>Expected: <strong className="text-foreground">{(course as any).expectedRelease}</strong></span>
                 <span>•</span>
-                <span>Format: <strong className="text-foreground uppercase">{course.type}</strong></span>
+                <span>Format: <strong className="text-foreground uppercase">{course?.type}</strong></span>
               </div>
             </div>
 
@@ -850,10 +854,10 @@ export default function CoursePlayerPage() {
               <h2 className="text-3xl font-bold tracking-tight">1. {(course as any).modules[0].title}</h2>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
                 <div className="flex items-center gap-4 text-sm text-muted">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-xs">{course.instructor[0]}</div>
-                  <span className="text-foreground font-medium">{course.instructor}</span>
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-xs">{course?.instructor?.firstName?.[0]}</div>
+                  <span className="text-foreground font-medium">{course?.instructor?.firstName} {course?.instructor?.lastName}</span>
                   <span>•</span>
-                  <span>Rate: ${course.rate}/{t.min}</span>
+                  <span>Rate: ${course?.rate || course?.pricePerMinute}/{t.min}</span>
                 </div>
                 
                 {/* AI Language Selector */}
