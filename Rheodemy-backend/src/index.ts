@@ -56,12 +56,12 @@ process.on("SIGTERM", shutdown);
 
 async function ensureDefaultUsers() {
   try {
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.default.hash("password123", 12);
+
+    // 1. Create Admin if not exists
     const adminExists = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
     if (!adminExists) {
-      const bcrypt = await import("bcryptjs");
-      const passwordHash = await bcrypt.default.hash("password123", 12);
-      
-      // Create admin
       await prisma.user.create({
         data: {
           firstName: "Admin",
@@ -73,54 +73,125 @@ async function ensureDefaultUsers() {
         },
       });
       logger.info("👤 Auto-created default admin user");
+    }
 
-      // Create default instructor if not exists
-      const instructorExists = await prisma.user.findUnique({ where: { email: "instructor@rheodemy.com" } });
-      if (!instructorExists) {
-        const instructor = await prisma.user.create({
-          data: {
-            firstName: "Jane",
-            lastName: "Doe",
-            email: "instructor@rheodemy.com",
-            passwordHash,
-            role: "INSTRUCTOR",
-            status: "ACTIVE",
-          },
-        });
-        await prisma.wallet.create({
-          data: {
-            userId: instructor.id,
-            walletAddress: "https://rafiki.example.com/instructor",
-            provider: "rafiki",
-            currency: "USD",
-          },
-        });
-        logger.info("👤 Auto-created default instructor user & wallet");
-      }
+    // 2. Create default instructor if not exists
+    let instructor = await prisma.user.findUnique({ where: { email: "instructor@rheodemy.com" } });
+    if (!instructor) {
+      instructor = await prisma.user.create({
+        data: {
+          firstName: "Jane",
+          lastName: "Doe",
+          email: "instructor@rheodemy.com",
+          passwordHash,
+          role: "INSTRUCTOR",
+          status: "ACTIVE",
+        },
+      });
+      await prisma.wallet.create({
+        data: {
+          userId: instructor.id,
+          walletAddress: "https://rafiki.example.com/instructor",
+          provider: "rafiki",
+          currency: "USD",
+        },
+      });
+      logger.info("👤 Auto-created default instructor user & wallet");
+    }
 
-      // Create default student if not exists
-      const studentExists = await prisma.user.findUnique({ where: { email: "student@rheodemy.com" } });
-      if (!studentExists) {
-        const student = await prisma.user.create({
-          data: {
-            firstName: "John",
-            lastName: "Smith",
-            email: "student@rheodemy.com",
-            passwordHash,
-            role: "STUDENT",
-            status: "ACTIVE",
-          },
-        });
-        await prisma.wallet.create({
-          data: {
-            userId: student.id,
-            walletAddress: "https://rafiki.example.com/student",
-            provider: "rafiki",
-            currency: "USD",
-          },
-        });
-        logger.info("👤 Auto-created default student user & wallet");
-      }
+    // 3. Create default student if not exists
+    const studentExists = await prisma.user.findUnique({ where: { email: "student@rheodemy.com" } });
+    if (!studentExists) {
+      const student = await prisma.user.create({
+        data: {
+          firstName: "John",
+          lastName: "Smith",
+          email: "student@rheodemy.com",
+          passwordHash,
+          role: "STUDENT",
+          status: "ACTIVE",
+        },
+      });
+      await prisma.wallet.create({
+        data: {
+          userId: student.id,
+          walletAddress: "https://rafiki.example.com/student",
+          provider: "rafiki",
+          currency: "USD",
+        },
+      });
+      logger.info("👤 Auto-created default student user & wallet");
+    }
+
+    // 4. Create default courses for instructor if none exist
+    const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
+    if (courseCount === 0) {
+      const dummyVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+      
+      // Course 1
+      const c1 = await prisma.course.create({
+        data: {
+          title: "Web Development for Beginners",
+          description: "A comprehensive introduction to modern web technologies. Learn HTML, CSS, JavaScript, and start building websites.",
+          pricePerMinute: 0.05,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c1.id, title: "Module 1: HTML Structure & Tags", description: "Learn how to structure web pages using HTML.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c1.id, title: "Module 1: CSS Foundations", description: "Learn how to style and design your layouts.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+          { courseId: c1.id, title: "Module 2: Responsive Design & Grid", description: "Design web pages that look great on any device.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
+          { courseId: c1.id, title: "Module 2: JavaScript Introduction", description: "Learn JavaScript programming fundamentals.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
+          { courseId: c1.id, title: "Module 2: DOM Manipulation", description: "Connect HTML elements with JavaScript logic.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+        ]
+      });
+
+      // Course 2
+      const c2 = await prisma.course.create({
+        data: {
+          title: "Mastering React and Next.js",
+          description: "Take your frontend development skills to the next level. Build robust applications with Server Components and the Next.js App Router.",
+          pricePerMinute: 0.15,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c2.id, title: "Module 1: Component Architecture", description: "Understand component composition, props, and design.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c2.id, title: "Module 1: State & Lifecycle Hooks", description: "Master React state, hooks, and side effects.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+          { courseId: c2.id, title: "Module 2: Next.js Routing", description: "Learn layout architecture and dynamic routes.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
+          { courseId: c2.id, title: "Module 2: Server Components & SSR", description: "Understand data rendering models and hydration.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
+          { courseId: c2.id, title: "Module 2: Custom Optimization Techniques", description: "Optimize bundle sizes, images, and fonts.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+        ]
+      });
+
+      // Course 3
+      const c3 = await prisma.course.create({
+        data: {
+          title: "AI and Machine Learning Foundations",
+          description: "Explore the mathematics and algorithms behind modern AI. Build linear models, basic neural networks, and deploy them.",
+          pricePerMinute: 0.30,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c3.id, title: "Module 1: Linear Algebra & Probability", description: "Mathematical foundations needed for machine learning.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c3.id, title: "Module 1: Data Cleaning & Wrangling", description: "How to prepare raw datasets for model training.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+          { courseId: c3.id, title: "Module 2: Supervised Learning & Regression", description: "Implement your first linear regression models.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
+          { courseId: c3.id, title: "Module 2: Neural Networks & Layers", description: "Understand perceptrons and backpropagation.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
+          { courseId: c3.id, title: "Module 2: Cloud Model Deployment", description: "Deploy your model to an endpoint for client usage.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+        ]
+      });
+
+      logger.info("👤 Auto-created 3 default courses for instructor");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
