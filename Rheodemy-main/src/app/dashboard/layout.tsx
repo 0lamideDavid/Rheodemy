@@ -11,8 +11,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { logout, user } = useAuth();
   
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Profile';
   
   // Initialize from path to avoid hydration mismatch
   const [role, setRole] = useState<'creator' | 'learner'>(
@@ -128,18 +131,35 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               
               <div className="relative" ref={dropdownRef}>
                 <button 
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="h-10 w-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  onClick={() => {
+                    setShowDropdown(!showDropdown);
+                    setShowTooltip(false);
+                  }}
+                  onMouseEnter={() => !showDropdown && setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 relative"
                 >
                   <User className="w-5 h-5 text-foreground/80" />
                 </button>
+
+                {/* Tooltip on Hover */}
+                {showTooltip && (
+                  <div className="absolute top-full mt-2 right-0 px-2.5 py-1.5 rounded-lg bg-[#0E0E0E] border border-white/10 text-xs font-semibold text-foreground pointer-events-none whitespace-nowrap shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {firstName}
+                  </div>
+                )}
                 
                 {showDropdown && (
                   <div className="absolute right-0 mt-2 w-48 rounded-xl bg-[#0A0A0A] border border-white/10 shadow-2xl py-1 z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        Account Options
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {user?.name || 'User'}
                       </p>
+                      {user?.email && (
+                        <p className="text-[10px] text-foreground/40 truncate mt-0.5">
+                          {user.email}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={handleLogout}
