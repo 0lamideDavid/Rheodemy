@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, PlayCircle, Wallet, Layers, ShieldCheck, Sparkles, ChevronRight, BookOpen, Headphones } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,7 +10,15 @@ import { useAuth } from "@/context/AuthContext";
 export default function MarketingLandingPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const router = useRouter();
   const [showDemoVideo, setShowDemoVideo] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      const route = user.role === 'CREATOR' ? 'creator' : 'learner';
+      router.push(`/dashboard/${route}`);
+    }
+  }, [user, router]);
 
   return (
     <div className="min-h-screen bg-transparent text-foreground flex flex-col relative overflow-hidden font-sans selection:bg-primary/30">
