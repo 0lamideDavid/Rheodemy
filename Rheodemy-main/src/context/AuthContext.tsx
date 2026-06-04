@@ -6,7 +6,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'LEARNER' | 'CREATOR' | null;
+  role: 'LEARNER' | 'CREATOR' | 'ADMIN' | null;
 }
 
 interface AuthContextType {
@@ -37,11 +37,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoaded(true);
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newUser: any) => {
+    let mappedRole: 'LEARNER' | 'CREATOR' | 'ADMIN' | null = null;
+    if (newUser.role === 'INSTRUCTOR' || newUser.role === 'CREATOR') {
+      mappedRole = 'CREATOR';
+    } else if (newUser.role === 'STUDENT' || newUser.role === 'LEARNER') {
+      mappedRole = 'LEARNER';
+    } else if (newUser.role === 'ADMIN') {
+      mappedRole = 'ADMIN';
+    }
+
+    const mappedUser: User = {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name || `${newUser.firstName || ''} ${newUser.lastName || ''}`.trim() || 'User',
+      role: mappedRole
+    };
+
     setToken(newToken);
-    setUser(newUser);
+    setUser(mappedUser);
     localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem('user', JSON.stringify(mappedUser));
   };
 
   const logout = () => {

@@ -9,7 +9,7 @@ export function Header() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const homeUrl = user ? `/dashboard/${user.role === 'INSTRUCTOR' ? 'creator' : 'learner'}` : '/';
+  const homeUrl = user ? `/dashboard/${user.role === 'CREATOR' ? 'creator' : 'learner'}` : '/';
   
   // Don't show top-left header on the very first screen, inside the dashboard, or creator signup
   if (pathname === "/" || pathname?.startsWith("/dashboard") || pathname === "/become-creator" || pathname === "/become-learner" || pathname === "/onboarding") return null;

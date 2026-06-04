@@ -21,7 +21,7 @@ export default function MarketingLandingPage() {
 
       {/* Navigation */}
       <header className="absolute top-0 inset-x-0 h-24 z-50 flex items-center justify-between px-6 md:px-12 max-w-7xl mx-auto w-full">
-        <Link href={user ? `/dashboard/${user.role === "INSTRUCTOR" ? "creator" : "learner"}` : "/"} className="flex items-center group">
+        <Link href={user ? `/dashboard/${user.role === "CREATOR" ? "creator" : "learner"}` : "/"} className="flex items-center group">
           <img src="/logo.png" alt="Rheodemy Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">

@@ -71,8 +71,8 @@ function AuthPageContent() {
         if (!user.role) {
           router.push("/role");
         } else {
-          // Map backend roles (STUDENT/INSTRUCTOR) to frontend routes (learner/creator)
-          const route = user.role === "INSTRUCTOR" ? "creator" : "learner";
+          // Map backend roles (STUDENT/INSTRUCTOR) or mapped roles to frontend routes (learner/creator)
+          const route = (user.role === "INSTRUCTOR" || user.role === "CREATOR") ? "creator" : "learner";
           router.push(`/dashboard/${route}`);
         }
       }
