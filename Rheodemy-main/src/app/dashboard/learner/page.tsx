@@ -188,7 +188,7 @@ export default function LearnerDashboard() {
                 <div className="flex justify-between items-start gap-2">
                   <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
                   <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
-                    ${course.pricePerMinute.toFixed(2)}/min
+                    ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min
                   </span>
                 </div>
                 <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>

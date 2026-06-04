@@ -205,7 +205,7 @@ export default function CreatorDashboard() {
                     <h3 className="font-semibold text-base leading-tight text-foreground group-hover:text-primary transition-colors">{course.title}</h3>
                     <div className="flex items-center gap-4 text-xs text-muted">
                       <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> {course.lessons.length} lessons</span>
-                      <span className="flex items-center gap-1.5"><DollarSign className="w-3 h-3 text-primary" /> ${course.pricePerMinute.toFixed(2)}/min</span>
+                      <span className="flex items-center gap-1.5"><DollarSign className="w-3 h-3 text-primary" /> ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min</span>
                     </div>
                   </div>
                 </div>
