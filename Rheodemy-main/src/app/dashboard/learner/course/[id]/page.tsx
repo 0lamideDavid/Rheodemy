@@ -245,6 +245,7 @@ export default function CoursePlayerPage() {
     };
   }, [sessionId]);
 
+  const resetActivityTimer = () => {
     setIsReaderIdle(false);
     if (activityTimerRef.current) {
       clearTimeout(activityTimerRef.current);
