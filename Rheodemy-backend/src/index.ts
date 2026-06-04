@@ -27,6 +27,9 @@ async function main() {
     await prisma.$connect();
     logger.info("✅ Database connected");
 
+    // Auto-create default users if missing (without cleaning data)
+    await ensureDefaultUsers();
+
     // Start listening
     httpServer.listen(env.PORT, () => {
       logger.info(`🚀 Rheodemy server running on port ${env.PORT}`);
@@ -50,5 +53,78 @@ async function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+
+async function ensureDefaultUsers() {
+  try {
+    const adminExists = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    if (!adminExists) {
+      const bcrypt = await import("bcryptjs");
+      const passwordHash = await bcrypt.default.hash("password123", 12);
+      
+      // Create admin
+      await prisma.user.create({
+        data: {
+          firstName: "Admin",
+          lastName: "User",
+          email: "admin@rheodemy.com",
+          passwordHash,
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+      });
+      logger.info("👤 Auto-created default admin user");
+
+      // Create default instructor if not exists
+      const instructorExists = await prisma.user.findUnique({ where: { email: "instructor@rheodemy.com" } });
+      if (!instructorExists) {
+        const instructor = await prisma.user.create({
+          data: {
+            firstName: "Jane",
+            lastName: "Doe",
+            email: "instructor@rheodemy.com",
+            passwordHash,
+            role: "INSTRUCTOR",
+            status: "ACTIVE",
+          },
+        });
+        await prisma.wallet.create({
+          data: {
+            userId: instructor.id,
+            walletAddress: "https://rafiki.example.com/instructor",
+            provider: "rafiki",
+            currency: "USD",
+          },
+        });
+        logger.info("👤 Auto-created default instructor user & wallet");
+      }
+
+      // Create default student if not exists
+      const studentExists = await prisma.user.findUnique({ where: { email: "student@rheodemy.com" } });
+      if (!studentExists) {
+        const student = await prisma.user.create({
+          data: {
+            firstName: "John",
+            lastName: "Smith",
+            email: "student@rheodemy.com",
+            passwordHash,
+            role: "STUDENT",
+            status: "ACTIVE",
+          },
+        });
+        await prisma.wallet.create({
+          data: {
+            userId: student.id,
+            walletAddress: "https://rafiki.example.com/student",
+            provider: "rafiki",
+            currency: "USD",
+          },
+        });
+        logger.info("👤 Auto-created default student user & wallet");
+      }
+    }
+  } catch (error) {
+    logger.error("❌ Failed to ensure default users", { error: String(error) });
+  }
+}
 
 main();
