@@ -31,7 +31,7 @@ export class AuthService {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create user
+    // Create user with default wallet
     const user = await prisma.user.create({
       data: {
         firstName,
@@ -39,6 +39,13 @@ export class AuthService {
         email,
         passwordHash,
         role: role as Role,
+        wallet: {
+          create: {
+            walletAddress: role === "INSTRUCTOR" ? (process.env.TEACHER_WALLET_ADDRESS || "https://ilp.interledger-test.dev/rheodemy") : (process.env.STUDENT_WALLET_ADDRESS || "https://ilp.interledger-test.dev/olamide"),
+            provider: "rafiki",
+            currency: "USD",
+          }
+        }
       },
       select: {
         id: true,

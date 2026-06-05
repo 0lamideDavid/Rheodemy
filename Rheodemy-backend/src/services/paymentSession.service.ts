@@ -80,9 +80,17 @@ export class PaymentSessionService {
     const { userId, courseId, lessonId } = input;
 
     // Ensure student has sufficient virtual balance before starting
-    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    let wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
-      throw new AppError('Student wallet not found. Cannot start session.', 400);
+      console.warn(`[PaymentSession] Student wallet not found for user ${userId}. Auto-creating default wallet...`);
+      wallet = await prisma.wallet.create({
+        data: {
+          userId,
+          walletAddress: process.env.STUDENT_WALLET_ADDRESS || "https://ilp.interledger-test.dev/olamide",
+          provider: "rafiki",
+          currency: "USD"
+        }
+      });
     }
 
     const session = await prisma.paymentSession.create({
