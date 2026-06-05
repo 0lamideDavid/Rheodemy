@@ -115,7 +115,7 @@ export default function CoursePlayerPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const courseType = (course?.type || ((activeLesson?.contentUrl || course?.lessons?.[0]?.contentUrl)?.match(/\.(mp4|mov|webm)/i) ? 'video' : 'audio')) as 'video' | 'audio' | 'ebook';
+  const courseType = ((course as any)?.type || 'video') as 'video' | 'audio' | 'ebook';
   const mediaRef = courseType === 'audio' ? audioRef : videoRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
