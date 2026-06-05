@@ -128,7 +128,12 @@ async function ensureDefaultUsers() {
       where: { instructorId: instructor.id, thumbnailUrl: null }
     });
     const outdatedLessons = await prisma.lesson.count({
-      where: { contentUrl: { contains: "BigBuckBunny" } }
+      where: { 
+        OR: [
+          { contentUrl: { contains: "BigBuckBunny" } },
+          { contentUrl: { contains: "mov_bbb.mp4" } }
+        ]
+      }
     });
     if (coursesWithoutThumbnails > 0 || outdatedLessons > 0) {
       logger.info("🗑️ Re-seeding instructor courses to apply new featured images & reliable videos...");
@@ -137,7 +142,7 @@ async function ensureDefaultUsers() {
 
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
     if (courseCount === 0) {
-      const dummyVideoUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
+      const dummyVideoUrl = "DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1";
       
       // Course 1
       const c1 = await prisma.course.create({
