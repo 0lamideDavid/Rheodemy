@@ -17,9 +17,9 @@ const STUDENT_WALLET   = process.env.STUDENT_WALLET_ADDRESS  ?? 'https://ilp.int
 const STUDENT_KEY_ID   = process.env.STUDENT_KEY_ID          ?? 'rheodemy-student-key-1';
 const STUDENT_KEY_PATH = process.env.STUDENT_PRIVATE_KEY_PATH ?? './keys/student.private.pem';
 
-// The limit we want to authorize (e.g. $100.00)
-// At scale 2, $100.00 = 10000
-const LIMIT_AMOUNT = '10000'; 
+// The limit we want to authorize (e.g. $10,000.00)
+// At scale 2, $10,000.00 = 1000000
+const LIMIT_AMOUNT = '1000000'; 
 
 function loadKey(path: string): Buffer {
   return readFileSync(resolve(process.cwd(), path));

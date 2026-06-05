@@ -32,7 +32,7 @@ const tickCounters   = new Map<string, number>();
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const TICK_INTERVAL_MS  = Number(process.env.TICK_INTERVAL_MS  ?? 5000);
-const PRICE_PER_TICK_USD = Number(process.env.PRICE_PER_TICK_USD ?? 0.001);
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
