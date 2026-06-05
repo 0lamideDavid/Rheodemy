@@ -721,9 +721,9 @@ export default function CoursePlayerPage() {
                 envKey={process.env.NEXT_PUBLIC_MUX_ENV_KEY}
                 poster={posterUrl}
                 onTimeUpdate={handleTimeUpdate}
-                onEnded={() => setIsPlaying(false)}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onEnded={async () => { setIsPlaying(false); await endSession(); }}
+                onPlay={async () => { setIsPlaying(true); await startSession(); }}
+                onPause={async () => { setIsPlaying(false); await endSession(); }}
                 streamType="on-demand"
               />
             )}
@@ -734,7 +734,9 @@ export default function CoursePlayerPage() {
                   ref={audioRef}
                   key={activeLesson?.id || 'default-aud'}
                   onTimeUpdate={handleTimeUpdate}
-                  onEnded={() => setIsPlaying(false)}
+                  onEnded={async () => { setIsPlaying(false); await endSession(); }}
+                  onPlay={async () => { setIsPlaying(true); await startSession(); }}
+                  onPause={async () => { setIsPlaying(false); await endSession(); }}
                 >
                   <source src={activeLesson?.contentUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"} type="audio/mpeg" />
                 </audio>
