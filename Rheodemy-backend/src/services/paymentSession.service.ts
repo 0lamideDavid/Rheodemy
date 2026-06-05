@@ -93,6 +93,9 @@ export class PaymentSessionService {
       });
     }
 
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new AppError('Course not found', 404);
+
     const session = await prisma.paymentSession.create({
       data: {
         userId,
@@ -121,9 +124,12 @@ export class PaymentSessionService {
 
     activeTickers.set(session.id, timer);
 
+    const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
+    const dynamicPricePerTick = Number(course.pricePerMinute) / ticksPerMinute;
+
     console.log(
       `[PaymentSession] ▶ Session ${session.id} started. ` +
-      `Ticker every ${TICK_INTERVAL_MS}ms @ $${PRICE_PER_TICK_USD}/tick`
+      `Ticker every ${TICK_INTERVAL_MS}ms @ $${dynamicPricePerTick.toFixed(6)}/tick`
     );
 
     return { sessionId: session.id };
@@ -144,9 +150,10 @@ export class PaymentSessionService {
       return null as any;
     }
 
-    // 1. Verify session is still ACTIVE
+    // 1. Verify session is still ACTIVE and fetch course
     const session = await prisma.paymentSession.findUnique({
       where: { id: sessionId },
+      include: { course: true }
     });
 
     if (!session || session.status !== 'ACTIVE') {
@@ -156,10 +163,13 @@ export class PaymentSessionService {
 
     const tickIndex = (tickCounters.get(sessionId) ?? 0) + 1;
 
+    const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
+    const dynamicPricePerTick = Number(session.course.pricePerMinute) / ticksPerMinute;
+
     // 2. Attempt ILP payment — if this throws, we do NOT touch the DB balance
     let ilpResult;
     try {
-      ilpResult = await RafikiService.executeTickPayment(PRICE_PER_TICK_USD);
+      ilpResult = await RafikiService.executeTickPayment(dynamicPricePerTick);
     } catch (ilpError) {
       // ⚠️ ILP FAILED — kill the session immediately, no balance deduction
       console.error(
@@ -172,15 +182,15 @@ export class PaymentSessionService {
     }
 
     // 3. ILP succeeded — now safely record in DB within a transaction
-    const platformFee  = parseFloat((PRICE_PER_TICK_USD * 0.1).toFixed(9));  // 10% cut
-    const netAmount    = parseFloat((PRICE_PER_TICK_USD - platformFee).toFixed(9));
+    const platformFee  = parseFloat((dynamicPricePerTick * 0.1).toFixed(9));  // 10% cut
+    const netAmount    = parseFloat((dynamicPricePerTick - platformFee).toFixed(9));
 
     // Atomic DB write — all three records succeed or none do
     const { transaction, payout, updatedSession } = await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
         data: {
           sessionId,
-          amount:       PRICE_PER_TICK_USD,
+          amount:       dynamicPricePerTick,
           platformFee,
           netAmount,
           currency:     RafikiConfig.assetCode,
@@ -202,7 +212,7 @@ export class PaymentSessionService {
 
       const updatedSession = await tx.paymentSession.update({
         where: { id: sessionId },
-        data:  { totalPaid: { increment: PRICE_PER_TICK_USD } },
+        data:  { totalPaid: { increment: dynamicPricePerTick } },
       });
 
       return { transaction, payout, updatedSession };
@@ -211,7 +221,7 @@ export class PaymentSessionService {
 
     // ── FX conversion for display layer ────────────────────────────────────
     const displayCurrency = process.env.DISPLAY_CURRENCY ?? 'NGN';
-    const fx = FxService.convert(PRICE_PER_TICK_USD, 'USD', displayCurrency);
+    const fx = FxService.convert(dynamicPricePerTick, 'USD', displayCurrency);
     const totalPaidLocal  = FxService.convert(
       Number(updatedSession.totalPaid), 'USD', displayCurrency
     ).toAmount;
@@ -219,7 +229,7 @@ export class PaymentSessionService {
     const result: TickResult = {
       transactionId:  transaction.id,
       payoutId:       payout.id,
-      amountPaid:     PRICE_PER_TICK_USD,
+      amountPaid:     dynamicPricePerTick,
       currency:       RafikiConfig.assetCode,
       localAmount:    fx.toAmount,
       localCurrency:  displayCurrency,
@@ -232,7 +242,7 @@ export class PaymentSessionService {
 
     console.log(
       `[Ticker] ✓ Tick ${tickIndex} | Session: ${sessionId} | ` +
-      `$${PRICE_PER_TICK_USD} USD (${fx.toAmount} ${displayCurrency}) | ` +
+      `$${dynamicPricePerTick.toFixed(6)} USD (${fx.toAmount} ${displayCurrency}) | ` +
       `Total: $${Number(updatedSession.totalPaid).toFixed(6)}`
     );
 
