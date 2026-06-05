@@ -110,6 +110,7 @@ export default function CoursePlayerPage() {
 
   // ── ILP Session State ─────────────────────────────────────────────────────
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const socketRef = useRef<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -222,6 +223,7 @@ export default function CoursePlayerPage() {
       const newSessionId = data.data?.sessionId || data.sessionId;
       if (newSessionId) {
         setSessionId(newSessionId);
+        sessionIdRef.current = newSessionId;
         // Connect socket and listen for payment:tick events
         const { io } = await import('socket.io-client');
         const socket = io(process.env.NEXT_PUBLIC_API_URL!, {
@@ -252,9 +254,15 @@ export default function CoursePlayerPage() {
   }, [token, course, activeLesson]);
 
   const endSession = useCallback(async () => {
-    if (!sessionId || !token) return;
+    const currentSessionId = sessionIdRef.current;
+    if (!currentSessionId || !token) return;
+    
+    // Clear the ref immediately to prevent double-calls
+    sessionIdRef.current = null;
+    setSessionId(null);
+
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${sessionId}/end`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${currentSessionId}/end`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -265,9 +273,8 @@ export default function CoursePlayerPage() {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      setSessionId(null);
     }
-  }, [sessionId, token]);
+  }, [token]);
 
   const selectLesson = async (index: number) => {
     if (index === currentLessonIndex) return;
@@ -303,9 +310,9 @@ export default function CoursePlayerPage() {
   // End session on component unmount
   useEffect(() => {
     return () => {
-      if (sessionId) endSession();
+      endSession();
     };
-  }, [sessionId]);
+  }, [endSession]);
 
   const resetActivityTimer = () => {
     setIsReaderIdle(false);
