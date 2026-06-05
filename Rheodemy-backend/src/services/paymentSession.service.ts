@@ -139,6 +139,11 @@ export class PaymentSessionService {
    */
   private static async _executeTick(sessionId: string): Promise<TickResult> {
 
+    // 0. Quick in-memory guard
+    if (!activeTickers.has(sessionId)) {
+      return null as any;
+    }
+
     // 1. Verify session is still ACTIVE
     const session = await prisma.paymentSession.findUnique({
       where: { id: sessionId },
@@ -146,7 +151,7 @@ export class PaymentSessionService {
 
     if (!session || session.status !== 'ACTIVE') {
       PaymentSessionService._clearTicker(sessionId);
-      throw new AppError(`Session ${sessionId} is not ACTIVE.`, 400);
+      return null as any;
     }
 
     const tickIndex = (tickCounters.get(sessionId) ?? 0) + 1;
@@ -163,7 +168,7 @@ export class PaymentSessionService {
       );
 
       await PaymentSessionService._killSession(sessionId, 'ILP payment failed');
-      throw ilpError; // propagate so the interval handler logs it
+      return null as any; // Return gracefully so interval handler doesn't log unhandled error
     }
 
     // 3. ILP succeeded — now safely record in DB within a transaction
