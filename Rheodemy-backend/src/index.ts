@@ -142,7 +142,7 @@ async function ensureDefaultUsers() {
 
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
     if (courseCount === 0) {
-      const dummyVideoUrl = "DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1";
+      const dummyVideoUrl = "jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs";
       
       // Course 1
       const c1 = await prisma.course.create({
