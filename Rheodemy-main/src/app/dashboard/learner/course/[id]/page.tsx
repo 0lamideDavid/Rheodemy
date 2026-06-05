@@ -209,9 +209,16 @@ export default function CoursePlayerPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ courseId: course.id, lessonId: activeLesson?.id }),
+        body: JSON.stringify({ courseId: course.id, lessonId: activeLesson?.id || undefined }),
       });
+      
       const data = await res.json();
+      
+      if (!res.ok) {
+        console.error('[CoursePlayer] /api/sessions/start returned error:', data);
+        return;
+      }
+      
       const newSessionId = data.data?.sessionId || data.sessionId;
       if (newSessionId) {
         setSessionId(newSessionId);
