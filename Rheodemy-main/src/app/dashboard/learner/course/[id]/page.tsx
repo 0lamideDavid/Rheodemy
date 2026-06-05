@@ -229,6 +229,9 @@ export default function CoursePlayerPage() {
         });
         
         // Listen for connection, then join the session room!
+        if (socket.connected) {
+          socket.emit('join:session', newSessionId);
+        }
         socket.on('connect', () => {
           socket.emit('join:session', newSessionId);
         });
