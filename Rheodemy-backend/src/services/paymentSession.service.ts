@@ -125,8 +125,7 @@ export class PaymentSessionService {
     activeTickers.set(session.id, timer);
 
     const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
-    // Temporarily multiplying the price by 10 to increase the test charge
-    const dynamicPricePerTick = (Number(course.pricePerMinute) * 10) / ticksPerMinute;
+    const dynamicPricePerTick = Number(course.pricePerMinute) / ticksPerMinute;
 
     console.log(
       `[PaymentSession] ▶ Session ${session.id} started. ` +
@@ -165,8 +164,7 @@ export class PaymentSessionService {
     const tickIndex = (tickCounters.get(sessionId) ?? 0) + 1;
 
     const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
-    // Temporarily multiplying the price by 10 to increase the test charge
-    const dynamicPricePerTick = (Number(session.course.pricePerMinute) * 10) / ticksPerMinute;
+    const dynamicPricePerTick = Number(session.course.pricePerMinute) / ticksPerMinute;
 
     // 2. Attempt ILP payment — if this throws, we do NOT touch the DB balance
     let ilpResult;

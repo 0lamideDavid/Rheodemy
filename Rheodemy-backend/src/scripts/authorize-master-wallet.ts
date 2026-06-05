@@ -13,13 +13,13 @@ import { createAuthenticatedClient, isPendingGrant, isFinalizedGrant } from '@in
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const STUDENT_WALLET   = process.env.STUDENT_WALLET_ADDRESS  ?? 'https://ilp.interledger-test.dev/rheodemy';
-const STUDENT_KEY_ID   = process.env.STUDENT_KEY_ID          ?? 'rheodemy-student-key-1';
+const STUDENT_WALLET = process.env.STUDENT_WALLET_ADDRESS ?? 'https://ilp.interledger-test.dev/rheodemy';
+const STUDENT_KEY_ID = process.env.STUDENT_KEY_ID ?? 'rheodemy-student-key-1';
 const STUDENT_KEY_PATH = process.env.STUDENT_PRIVATE_KEY_PATH ?? './keys/student.private.pem';
 
-// The limit we want to authorize (e.g. $10,000.00)
-// At scale 2, $10,000.00 = 1000000
-const LIMIT_AMOUNT = '1000000'; 
+// The limit we want to authorize (e.g. $100.00)
+// At scale 2, $100.00 = 10000
+const LIMIT_AMOUNT = '10000';
 
 function loadKey(path: string): Buffer {
   return readFileSync(resolve(process.cwd(), path));
@@ -30,15 +30,16 @@ async function main() {
   console.log(`   WALLET: ${STUDENT_WALLET}`);
 
   const studentClient = await createAuthenticatedClient({
-    keyId:            STUDENT_KEY_ID,
-    privateKey:       loadKey(STUDENT_KEY_PATH),
+    keyId: STUDENT_KEY_ID,
+    privateKey: loadKey(STUDENT_KEY_PATH),
     walletAddressUrl: STUDENT_WALLET,
     // @ts-ignore
     validateResponses: false,
+    requestTimeoutMs: 60000,
   });
 
   const studentWallet = await studentClient.walletAddress.get({ url: STUDENT_WALLET });
-  const assetCode  = studentWallet.assetCode;
+  const assetCode = studentWallet.assetCode;
   const assetScale = studentWallet.assetScale;
 
   console.log(`\n▶ Requesting high-limit grant (${LIMIT_AMOUNT} ${assetCode} @ scale ${assetScale})`);
@@ -54,8 +55,8 @@ async function main() {
           identifier: STUDENT_WALLET,
           limits: {
             debitAmount: {
-              value:      LIMIT_AMOUNT,
-              assetCode:  assetCode,
+              value: LIMIT_AMOUNT,
+              assetCode: assetCode,
               assetScale: assetScale,
             },
           },
@@ -65,7 +66,7 @@ async function main() {
         start: ['redirect'],
         finish: {
           method: 'redirect',
-          uri:    'https://rheodemy.app/payment/callback',
+          uri: 'https://rheodemy.app/payment/callback',
           nonce,
         },
       },
@@ -113,7 +114,7 @@ async function main() {
 
   const continuedGrant = await studentClient.grant.continue(
     {
-      url:         outgoingGrantRequest.continue.uri,
+      url: outgoingGrantRequest.continue.uri,
       accessToken: outgoingGrantRequest.continue.access_token.value,
     },
     { interact_ref }
@@ -130,9 +131,9 @@ async function main() {
 main().catch((err) => {
   console.error('\n❌ Authorization failed:');
   console.error('  message:     ', err?.message);
-  console.error('  status:      ', err?.status       ?? err?.statusCode  ?? 'unknown');
-  console.error('  description: ', err?.description  ?? err?.description ?? '');
-  console.error('  errorCode:   ', err?.errorCode    ?? '');
+  console.error('  status:      ', err?.status ?? err?.statusCode ?? 'unknown');
+  console.error('  description: ', err?.description ?? err?.description ?? '');
+  console.error('  errorCode:   ', err?.errorCode ?? '');
   console.error('  errors:      ', JSON.stringify(err?.validationErrors ?? err?.errors ?? [], null, 2));
   process.exit(1);
 });
