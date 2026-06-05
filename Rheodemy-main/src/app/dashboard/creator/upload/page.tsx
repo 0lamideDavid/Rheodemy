@@ -223,6 +223,9 @@ export default function UploadCourse() {
                   className="w-full bg-background border border-white/10 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:border-primary transition-colors disabled:opacity-50" 
                 />
               </div>
+              <p className="text-xs text-muted mt-2">
+                Estimated cost for 10 min lesson: ${(parseFloat(rate || "0") * 10).toFixed(2)}
+              </p>
             </div>
 
             <div>

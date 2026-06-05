@@ -10,7 +10,7 @@
   --color-muted: var(--muted);
   --color-destructive: var(--destructive);
   --color-warning: var(--warning);
-  --font-serif: var(--font-eb-garamond);
+  --font-serif: var(--font-cormorant-garamond);
   --font-mono: var(--font-jetbrains-mono);
   --font-cormorant: var(--font-cormorant-garamond);
 }

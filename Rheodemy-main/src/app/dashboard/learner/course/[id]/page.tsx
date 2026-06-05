@@ -1,4 +1,5 @@
 "use client";
+import MuxPlayer from '@mux/mux-player-react';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -413,53 +414,11 @@ export default function CoursePlayerPage() {
     }
   };
 
-  const ebookPages = [
-    (
-      <div key="p1" className="space-y-6">
-        <div className="border-b border-black/10 pb-8 mb-8">
-          <h1 className="text-4xl font-bold font-serif mb-4 text-black">{course?.title}</h1>
-          <div className="flex items-center gap-4 text-sm text-black/60">
-            <span>By {course?.instructor?.firstName} {course?.instructor?.lastName}</span>
-            <span>•</span>
-            <span>Published 2026</span>
-          </div>
-        </div>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          Welcome to the definitive guide on systems thinking and layouts. To properly model and monetize content, Rheodemy utilizes standard Interledger payment channels. The streaming API bills you per second. Slow readers or those who get distracted are fully protected:
-        </p>
-        <div className="p-8 bg-black/5 rounded-2xl border-l-4 border-primary my-8">
-          <p className="text-xl italic font-serif text-black leading-snug">
-            "We believe knowledge should be accessible, and pricing models should be strictly aligned with consumption. That is why slow readers are capped at 45 seconds of streaming billing per page, and idle readers are paused immediately."
-          </p>
-        </div>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          If you remain inactive (no scrolling, typing, or moving the cursor) for 15 seconds, the meter will auto-pause. Try it on this page!
-        </p>
-      </div>
-    ),
-    (
-      <div key="p2" className="space-y-6">
-        <h2 className="text-2xl font-bold font-serif mt-4 mb-6 text-black">The Foundations of Systems</h2>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          Systems layout architecture deals with visual grids and structural constraints. In next-generation styling, standard flex properties dictate how layers adapt. By using clean CSS variables and Tailwind utility maps, we ensure screens remain fully responsive across desktop, tablet, and mobile configurations.
-        </p>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          Web Monetization is a critical cog in this wheel. Unlike traditional subscriptions where users are locked into flat monthly fees, Interledger streams microcent fractions to creators in real time, shifting the economics of content marketplaces.
-        </p>
-      </div>
-    ),
-    (
-      <div key="p3" className="space-y-6">
-        <h2 className="text-2xl font-bold font-serif mt-4 mb-6 text-black">Rapid Prototyping</h2>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          A high-fidelity prototype bridges the gap between design concepts and fully tested code. By simulating backend states (like voting queues and escrow escrow pots in local client storage), engineers can present stakeholders with comprehensive product demonstrations before writing a single line of backend APIs.
-        </p>
-        <p className="text-lg leading-relaxed font-serif text-[#2A2A2A]">
-          Thank you for reading this Handbook! All features are fully functional inside this Rheodemy MVP release.
-        </p>
-      </div>
-    )
-  ];
+  const ebookPages = activeLesson?.contentUrl
+    ? activeLesson.contentUrl.split('\\n\\n').map((paragraph: string, i: number) => (
+        <p key={i} className="mb-6 leading-relaxed text-[#1A1A1A] text-lg font-serif">{paragraph}</p>
+      ))
+    : [<p key="0" className="text-muted">No content available.</p>];
 
   const handleNextPage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -742,19 +701,19 @@ export default function CoursePlayerPage() {
           <div ref={containerRef} className="w-full aspect-video bg-black relative group cursor-pointer" onClick={togglePlay}>
             
             {courseType === 'video' && (
-              <video 
-                ref={videoRef}
+              <MuxPlayer 
+                ref={videoRef as any}
                 key={activeLesson?.id || 'default-vid'}
                 className="w-full h-full object-cover"
-                preload="auto"
-                playsInline
+                playbackId={activeLesson?.contentUrl && !activeLesson.contentUrl.startsWith('http') ? activeLesson.contentUrl : 'DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1'}
+                envKey={process.env.NEXT_PUBLIC_MUX_ENV_KEY}
                 poster={posterUrl}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
-              >
-                <source src={activeLesson?.contentUrl || "https://www.w3schools.com/html/mov_bbb.mp4"} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                streamType="on-demand"
+              />
             )}
 
             {courseType === 'audio' && (
