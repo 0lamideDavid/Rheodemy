@@ -705,7 +705,7 @@ export default function CoursePlayerPage() {
                 ref={videoRef as any}
                 key={activeLesson?.id || 'default-vid'}
                 className="w-full h-full object-cover"
-                playbackId={activeLesson?.contentUrl && !activeLesson.contentUrl.startsWith('http') ? activeLesson.contentUrl : 'DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1'}
+                playbackId={activeLesson?.contentUrl || 'DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1'}
                 envKey={process.env.NEXT_PUBLIC_MUX_ENV_KEY}
                 poster={posterUrl}
                 onTimeUpdate={handleTimeUpdate}
