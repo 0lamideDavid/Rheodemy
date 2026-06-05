@@ -203,6 +203,10 @@ export default function CoursePlayerPage() {
   // ── ILP Session Management ────────────────────────────────────────────────
   const startSession = useCallback(async () => {
     if (!token || !course) return;
+    if (sessionIdRef.current) {
+      console.log('[CoursePlayer] Session already active, ignoring duplicate start request');
+      return;
+    }
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/start`, {
         method: 'POST',
@@ -240,10 +244,11 @@ export default function CoursePlayerPage() {
 
         socket.on('payment:tick', (payload: any) => {
           if (payload.sessionId === newSessionId) {
-            setTotalStreamed(prev => prev + payload.amountStreamed);
-            setCreatorShare(prev => prev + payload.creatorShare);
-            setPlatformShare(prev => prev + payload.platformShare);
-            setBursaryShare(prev => prev + payload.bursaryShare);
+            const amount = payload.amountPaid || 0;
+            setTotalStreamed(prev => prev + amount);
+            setCreatorShare(prev => prev + (amount * 0.80));
+            setPlatformShare(prev => prev + (amount * 0.15));
+            setBursaryShare(prev => prev + (amount * 0.05));
           }
         });
         socketRef.current = socket;
