@@ -381,28 +381,18 @@ export default function CoursePlayerPage() {
     if (mediaRef.current) {
       if (isPlaying) {
         mediaRef.current.pause();
-        setIsPlaying(false);
-        await endSession();
+        // setIsPlaying and endSession are handled by onPause
       } else {
         const playPromise = mediaRef.current.play();
         if (playPromise !== undefined) {
-          playPromise.then(async () => {
-            setIsPlaying(true);
-            await startSession();
-          }).catch(error => {
+          playPromise.catch(error => {
             console.error("Video playback failed:", error);
             if (mediaRef.current) {
                mediaRef.current.muted = true;
                setIsMuted(true);
-               mediaRef.current.play().then(async () => {
-                 setIsPlaying(true);
-                 await startSession();
-               }).catch(e => console.error(e));
+               mediaRef.current.play().catch(e => console.error(e));
             }
           });
-        } else {
-          setIsPlaying(true);
-          await startSession();
         }
       }
     }
