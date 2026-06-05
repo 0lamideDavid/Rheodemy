@@ -226,9 +226,14 @@ export default function CoursePlayerPage() {
         const { io } = await import('socket.io-client');
         const socket = io(process.env.NEXT_PUBLIC_API_URL!, {
           auth: { token },
-          transports: ['websocket'],
         });
-        socket.on('payment:tick', (payload: { sessionId: string; amountStreamed: number; creatorShare: number; platformShare: number; bursaryShare: number }) => {
+        
+        // Listen for connection, then join the session room!
+        socket.on('connect', () => {
+          socket.emit('join:session', newSessionId);
+        });
+
+        socket.on('payment:tick', (payload: any) => {
           if (payload.sessionId === newSessionId) {
             setTotalStreamed(prev => prev + payload.amountStreamed);
             setCreatorShare(prev => prev + payload.creatorShare);
