@@ -75,8 +75,9 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
     });
 
     // Client can join a session room by emitting 'join:session'
-    socket.on('join:session', (sessionId: string) => {
+      socket.on('join:session', (sessionId: string) => {
       socket.join(`session:${sessionId}`);
+      console.log(`[Socket.io] 🟢 Client joined session room -> session:${sessionId} | Socket: ${socket.id}`);
       logger.info('[Socket.io] Client joined session room', {
         socketId: socket.id,
         sessionId,
@@ -116,6 +117,7 @@ export const SocketService = {
    */
   emitTick(sessionId: string, tickResult: object): void {
     if (!_io) return;
+    console.log(`[Socket.io] 💸 Emitting payment:tick to room -> session:${sessionId}`);
     _io.to(`session:${sessionId}`).emit('payment:tick', { sessionId, ...tickResult });
     logger.debug('[Socket.io] payment:tick emitted', { sessionId });
   },
