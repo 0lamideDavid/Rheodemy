@@ -215,7 +215,7 @@ async function ensureDefaultUsers() {
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://plus.unsplash.com/premium_photo-1683121710572-7723bd2e235d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8YWklMjBhbmQlMjBtYWNoaW5lJTIwbGVhcm5pbmd8ZW58MHx8MHx8fDA%3D"
         }
       });
       await prisma.lesson.createMany({
