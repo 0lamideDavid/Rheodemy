@@ -197,10 +197,10 @@ export default function CoursePlayerPage() {
 
   // ── ILP Session Management ────────────────────────────────────────────────
   const startSession = useCallback(async () => {
-    if (!token || !course) return;
+    if (!token || !course) return undefined;
     if (sessionIdRef.current) {
       console.log('[CoursePlayer] Session already active, ignoring duplicate start request');
-      return;
+      return sessionIdRef.current;
     }
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/start`, {
@@ -247,9 +247,12 @@ export default function CoursePlayerPage() {
           }
         });
         socketRef.current = socket;
+        return newSessionId;
       }
+      return undefined;
     } catch (err) {
       console.error('[CoursePlayer] Failed to start session:', err);
+      return undefined;
     }
   }, [token, course, activeLesson]);
 
