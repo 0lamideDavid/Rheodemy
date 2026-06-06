@@ -16,8 +16,8 @@ interface CourseLesson {
   id: string;
   title: string;
   durationSec: number;
-  order: number;
   contentUrl: string;
+  contentType?: 'VIDEO' | 'AUDIO' | 'EBOOK';
 }
 
 interface CourseData {
@@ -116,7 +116,8 @@ export default function CoursePlayerPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const courseType = ((course as any)?.type || 'video') as 'video' | 'audio' | 'ebook';
+  // Derive courseType from the active lesson
+  const courseType = (activeLesson?.contentType?.toLowerCase() as 'video' | 'audio' | 'ebook') || 'video';
   const mediaRef = courseType === 'audio' ? audioRef : videoRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -126,19 +127,13 @@ export default function CoursePlayerPage() {
   // Ebook Pagination & Slow Reader States
   const [currentPage, setCurrentPage] = useState(0);
   const [visitedPages, setVisitedPages] = useState<number[]>([]);
-  const isPageNew = !visitedPages.includes(currentPage);
-  
-  // Slow Reader: Activity / Idle Tracker (15s inactivity triggers idle)
-  const [isReaderIdle, setIsReaderIdle] = useState(false);
-  const activityTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Slow Reader: Cost Capping (track active billable seconds on current page)
-  const [pageBilledSeconds, setPageBilledSeconds] = useState<Record<number, number>>({});
-  const isPageCostCapped = (pageBilledSeconds[currentPage] || 0) >= 45;
 
   // Media High-Water Mark State (for skipping/rewinding)
-  const [highestTimeReached, setHighestTimeReached] = useState(0);
-  const isMediaReplaying = mediaRef.current ? mediaRef.current.currentTime < highestTimeReached - 0.5 : false;
+  const highWaterMarkRef = useRef(0);
+  const [isMediaReplaying, setIsMediaReplaying] = useState(false);
+
+  // Ebook High-Water Mark State
+  const highestPageReachedRef = useRef(0);
 
   // Monetization State — driven by real socket ticks
   const [totalStreamed, setTotalStreamed] = useState(0);
@@ -319,55 +314,6 @@ export default function CoursePlayerPage() {
     };
   }, [endSession]);
 
-  const resetActivityTimer = () => {
-    setIsReaderIdle(false);
-    if (activityTimerRef.current) {
-      clearTimeout(activityTimerRef.current);
-    }
-    activityTimerRef.current = setTimeout(() => {
-      setIsReaderIdle(true);
-    }, 15000); // 15 seconds idle timeout
-  };
-
-  useEffect(() => {
-    if (course?.type === 'ebook' && isPlaying && !isPageCostCapped && isPageNew) {
-      // Initialize activity listeners
-      resetActivityTimer();
-      window.addEventListener('mousemove', resetActivityTimer);
-      window.addEventListener('scroll', resetActivityTimer, true);
-      window.addEventListener('keydown', resetActivityTimer);
-      window.addEventListener('click', resetActivityTimer);
-
-      return () => {
-        if (activityTimerRef.current) {
-          clearTimeout(activityTimerRef.current);
-        }
-        window.removeEventListener('mousemove', resetActivityTimer);
-        window.removeEventListener('scroll', resetActivityTimer, true);
-        window.removeEventListener('keydown', resetActivityTimer);
-        window.removeEventListener('click', resetActivityTimer);
-      };
-    }
-  }, [isPlaying, currentPage, isPageCostCapped, isPageNew, course?.type]);
-
-  // Ebook billing increment interval
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && course?.type === 'ebook' && isPageNew && !isPageCostCapped && !isReaderIdle) {
-      interval = setInterval(() => {
-        setStreamedSeconds(prev => prev + 1);
-        setProgress(prev => Math.min(prev + 0.22, 100)); // fake progress for page
-        
-        // Track page billed time
-        setPageBilledSeconds(prev => ({
-          ...prev,
-          [currentPage]: (prev[currentPage] || 0) + 1
-        }));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, course?.type, currentPage, isPageNew, isPageCostCapped, isReaderIdle]);
-
   const toggleFullscreen = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (containerRef.current) {
@@ -379,10 +325,30 @@ export default function CoursePlayerPage() {
     }
   };
 
+  const handleEbookTick = async (sid: string) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${sid}/tick`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('rheodemy_token')}`
+        }
+      });
+    } catch (err) {
+      console.error("Failed to tick ebook", err);
+    }
+  };
+
   const togglePlay = async () => {
     if (courseType === 'ebook') {
       if (!isPlaying) {
-        await startSession();
+        const sid = await startSession();
+        if (sid) {
+          // Charge for page 0
+          if (highestPageReachedRef.current === 0) {
+            await handleEbookTick(sid);
+          }
+        }
       } else {
         await endSession();
       }
@@ -425,8 +391,21 @@ export default function CoursePlayerPage() {
       setProgress((current / duration) * 100);
       
       // High-Water Mark Logic: Only charge for new sections
-      if (current > highestTimeReached) {
-        setHighestTimeReached(current);
+      if (current > highWaterMarkRef.current) {
+        highWaterMarkRef.current = current;
+        if (isMediaReplaying) {
+          setIsMediaReplaying(false);
+          if (socketRef.current && sessionId) {
+            socketRef.current.emit('resume:billing', sessionId);
+          }
+        }
+      } else if (current < highWaterMarkRef.current - 0.5) {
+        if (!isMediaReplaying) {
+          setIsMediaReplaying(true);
+          if (socketRef.current && sessionId) {
+            socketRef.current.emit('pause:billing', sessionId);
+          }
+        }
       }
     }
   };
@@ -437,14 +416,21 @@ export default function CoursePlayerPage() {
       ))
     : [<p key="0" className="text-muted">No content available.</p>];
 
-  const handleNextPage = (e: React.MouseEvent) => {
+  const handleNextPage = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!visitedPages.includes(currentPage)) {
       setVisitedPages([...visitedPages, currentPage]);
     }
     if (currentPage < ebookPages.length - 1) {
-      setCurrentPage(prev => prev + 1);
-      resetActivityTimer();
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      
+      if (nextPage > highestPageReachedRef.current) {
+        highestPageReachedRef.current = nextPage;
+        if (sessionId) {
+          await handleEbookTick(sessionId);
+        }
+      }
     }
   };
 
@@ -704,7 +690,7 @@ export default function CoursePlayerPage() {
 
         {/* Unobtrusive Monetization Tracker */}
         <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(0,212,200,0.05)]">
-          <div className={`w-1.5 h-1.5 rounded-full ${isPlaying && !isReaderIdle ? 'bg-primary animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]' : 'bg-muted'}`} />
+          <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-primary animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]' : 'bg-muted'}`} />
           <span className="text-xs font-mono text-primary flex items-center gap-1.5">
             Streaming ILP <span className="opacity-50">|</span> ${totalStreamed.toFixed(4)}
           </span>
@@ -768,28 +754,12 @@ export default function CoursePlayerPage() {
                   </div>
                 )}
 
-                {/* Floating State Indicators (Slow Reader Protection Alert Panels) */}
+                {/* Floating State Indicators (Per-Page Billing) */}
                 {isPlaying && (
                   <div className="absolute bottom-6 right-8 z-30 flex flex-col gap-2 items-end">
                     
-                    {/* 1. Idle Notice */}
-                    {isReaderIdle && (
-                      <div className="bg-yellow-500 text-black px-4 py-2.5 rounded-xl border border-yellow-600/20 shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <AlertCircle className="w-4 h-4 text-black animate-bounce" />
-                        <span className="text-sm font-semibold">{t.idlePaused}</span>
-                      </div>
-                    )}
-
-                    {/* 2. Capped Notice */}
-                    {isPageCostCapped && (
-                      <div className="bg-emerald-500 text-white px-4 py-2.5 rounded-xl border border-emerald-600/20 shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span className="text-sm font-semibold">{t.paymentCapped}</span>
-                      </div>
-                    )}
-
-                    {/* 3. Re-reading Notice */}
-                    {!isPageNew && !isPageCostCapped && (
+                    {/* Re-reading Notice */}
+                    {currentPage < highestPageReachedRef.current && (
                       <div className="bg-white text-black px-4 py-2 rounded-full border border-black/10 shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4">
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                         <span className="text-sm font-medium">{t.rereadingFree}</span>

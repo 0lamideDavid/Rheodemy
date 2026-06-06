@@ -111,18 +111,25 @@ export class PaymentSessionService {
     // Notify connected clients
     SocketService.emitSessionStarted(session.id, userId, courseId);
 
-    // Start the ticker
-    const timer = setInterval(async () => {
-      try {
-        await PaymentSessionService._executeTick(session.id);
-      } catch (err) {
-        // _executeTick handles its own session killing on failure
-        // Only log unhandled errors here
-        console.error(`[Ticker] Unhandled error for session ${session.id}:`, err);
-      }
-    }, TICK_INTERVAL_MS);
+    const lesson = lessonId ? await prisma.lesson.findUnique({ where: { id: lessonId } }) : null;
 
-    activeTickers.set(session.id, timer);
+    if (lesson?.contentType === 'EBOOK') {
+      // Ebooks don't have a time-based ticker, they are ticked manually per page
+      activeTickers.set(session.id, setTimeout(() => {}, 2147483647)); // Dummy timer to pass guard
+    } else {
+      // Start the continuous ticker for audio/video
+      const timer = setInterval(async () => {
+        try {
+          await PaymentSessionService._executeTick(session.id);
+        } catch (err) {
+          // _executeTick handles its own session killing on failure
+          // Only log unhandled errors here
+          console.error(`[Ticker] Unhandled error for session ${session.id}:`, err);
+        }
+      }, TICK_INTERVAL_MS);
+
+      activeTickers.set(session.id, timer);
+    }
 
     const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
     const dynamicPricePerTick = Number(course.pricePerMinute) / ticksPerMinute;
@@ -250,6 +257,13 @@ export class PaymentSessionService {
     SocketService.emitTick(sessionId, result);
 
     return result;
+  }
+
+  /**
+   * Manually executes a single tick (used for per-page Ebook billing).
+   */
+  static async tickSession(sessionId: string): Promise<TickResult> {
+    return await PaymentSessionService._executeTick(sessionId);
   }
 
   /**

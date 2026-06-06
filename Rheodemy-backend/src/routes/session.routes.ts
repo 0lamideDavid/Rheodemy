@@ -23,6 +23,7 @@ router.use(authenticate);
 // ── Session lifecycle ─────────────────────────────────────────────────────────
 
 router.post('/start',     (req, res, next) => PaymentSessionController.startSession(req, res, next));
+router.post('/:id/tick',  (req, res, next) => PaymentSessionController.tickSession(req, res, next));
 router.post('/:id/end',   (req, res, next) => PaymentSessionController.endSession(req, res, next));
 router.get('/:id',        (req, res, next) => PaymentSessionController.getSession(req, res, next));
 

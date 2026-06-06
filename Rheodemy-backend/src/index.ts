@@ -153,8 +153,8 @@ async function ensureDefaultUsers() {
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c1.id, title: "Module 1: Strict Mode", description: "Learn how to use strict mode.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c1.id, title: "Module 2: Advanced Types", description: "Generics and mapped types.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+          { courseId: c1.id, title: "Module 1: Strict Mode", description: "Learn how to use strict mode.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 1 },
+          { courseId: c1.id, title: "Module 2: Advanced Types", description: "Generics and mapped types.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 400, order: 2 },
         ]
       });
 
@@ -172,8 +172,8 @@ async function ensureDefaultUsers() {
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c2.id, title: "Chapter 1: Systems Thinking", description: "Design systems.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c2.id, title: "Chapter 2: Layouts", description: "Grid and flex.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+          { courseId: c2.id, title: "Chapter 1: Systems Thinking", description: "Design systems.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 1 },
+          { courseId: c2.id, title: "Chapter 2: Layouts", description: "Grid and flex.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 400, order: 2 },
         ]
       });
 
@@ -191,7 +191,7 @@ async function ensureDefaultUsers() {
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c4.id, title: "Foreword & Introduction", description: "Getting started.", contentUrl: "Welcome to the handbook.\\n\\nThis is a test ebook.", durationSec: 0, order: 1 }
+          { courseId: c4.id, title: "Foreword & Introduction", description: "Getting started.", contentUrl: "Welcome to the handbook.\\n\\nThis is a test ebook.", contentType: 'EBOOK', durationSec: 0, order: 1 }
         ]
       });
 
@@ -209,7 +209,7 @@ async function ensureDefaultUsers() {
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c5.id, title: "Interview with CEO of Vercel", description: "Audio podcast.", contentUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", durationSec: 1200, order: 1 }
+          { courseId: c5.id, title: "Interview with CEO of Vercel", description: "Audio podcast.", contentUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", contentType: 'AUDIO', durationSec: 1200, order: 1 }
         ]
       });
 

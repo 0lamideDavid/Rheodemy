@@ -43,6 +43,12 @@ enum EnrollmentStatus {
   COMPLETED
 }
 
+enum ContentType {
+  VIDEO
+  AUDIO
+  EBOOK
+}
+
 enum SessionStatus {
   ACTIVE    // lesson is playing, ticks are running
   ENDED     // student stopped the lesson cleanly
@@ -133,6 +139,7 @@ model Lesson {
   title       String
   description String?
   contentUrl  String                          // URL to video/audio content
+  contentType ContentType @default(VIDEO)
   durationSec Int                             // lesson length in seconds
   order       Int                             // determines lesson sequence within a course
   createdAt   DateTime @default(now())
