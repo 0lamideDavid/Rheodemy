@@ -86,7 +86,7 @@ export class PaymentSessionService {
       wallet = await prisma.wallet.create({
         data: {
           userId,
-          walletAddress: process.env.STUDENT_WALLET_ADDRESS || "https://ilp.interledger-test.dev/olamide",
+          walletAddress: `https://ilp.interledger-test.dev/${userId}`,
           provider: "rafiki",
           currency: "USD"
         }

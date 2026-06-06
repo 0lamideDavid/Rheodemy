@@ -137,8 +137,10 @@ async function ensureDefaultUsers() {
     });
     if (coursesWithoutThumbnails > 0 || outdatedLessons > 0) {
       logger.info("🗑️ Re-seeding instructor courses to apply new featured images & reliable videos...");
+      await prisma.paymentSession.deleteMany({ where: { course: { instructorId: instructor.id } } });
+      await prisma.enrollment.deleteMany({ where: { course: { instructorId: instructor.id } } });
+      await prisma.lesson.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
-    }
 
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
     if (courseCount === 0) {
