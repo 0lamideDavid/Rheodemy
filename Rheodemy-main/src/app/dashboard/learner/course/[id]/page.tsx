@@ -16,6 +16,7 @@ interface CourseLesson {
   id: string;
   title: string;
   durationSec: number;
+  order: number;
   contentUrl: string;
   contentType?: 'VIDEO' | 'AUDIO' | 'EBOOK';
 }
