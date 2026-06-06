@@ -58,27 +58,15 @@ export class PaymentSessionController {
   }
 
   /**
-   * POST /sessions/:id/tick
-   * Manually executes a single tick (used for per-page Ebook billing).
-   */
-  static async tickSession(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const sessionId = req.params.id;
-      const result = await PaymentSessionService.tickSession(sessionId);
-      sendSuccess(res, result, 'Manual tick executed');
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  /**
    * POST /sessions/:id/end
-   * Stops the ticker and marks the session ENDED.
+   * Stops the session and executes a single final ILP payment.
    */
   static async endSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const summary = await PaymentSessionService.endSession(req.params.id);
-      sendSuccess(res, summary, 'Session ended successfully');
+      const sessionId = req.params.id;
+      const { totalAmount } = req.body;
+      const result = await PaymentSessionService.endSession(sessionId, totalAmount);
+      sendSuccess(res, result, 'Session ended and payment executed');
     } catch (err) {
       next(err);
     }

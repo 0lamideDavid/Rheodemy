@@ -224,13 +224,12 @@ export default function CoursePlayerPage() {
       if (newSessionId) {
         setSessionId(newSessionId);
         sessionIdRef.current = newSessionId;
-        // Connect socket and listen for payment:tick events
+        // Connect socket for other session events (if any)
         const { io } = await import('socket.io-client');
         const socket = io(process.env.NEXT_PUBLIC_API_URL!, {
           auth: { token },
         });
         
-        // Listen for connection, then join the session room!
         if (socket.connected) {
           socket.emit('join:session', newSessionId);
         }
@@ -238,15 +237,6 @@ export default function CoursePlayerPage() {
           socket.emit('join:session', newSessionId);
         });
 
-        socket.on('payment:tick', (payload: any) => {
-          if (payload.sessionId === newSessionId) {
-            const amount = payload.amountPaid || 0;
-            setTotalStreamed(prev => prev + amount);
-            setCreatorShare(prev => prev + (amount * 0.80));
-            setPlatformShare(prev => prev + (amount * 0.15));
-            setBursaryShare(prev => prev + (amount * 0.05));
-          }
-        });
         socketRef.current = socket;
         return newSessionId;
       }
@@ -257,6 +247,28 @@ export default function CoursePlayerPage() {
     }
   }, [token, course, activeLesson]);
 
+  // ── Local Escrow Tracking ──────────────────────────────────────────────────
+  const pendingAmountRef = useRef(0);
+
+  const incrementEscrow = useCallback((amount: number) => {
+    pendingAmountRef.current += amount;
+    setTotalStreamed(prev => prev + amount);
+    setCreatorShare(prev => prev + (amount * 0.80));
+    setPlatformShare(prev => prev + (amount * 0.15));
+    setBursaryShare(prev => prev + (amount * 0.05));
+  }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPlaying && !isMediaReplaying && courseType !== 'ebook' && course) {
+      interval = setInterval(() => {
+        const amountPerSecond = course.pricePerMinute / 60;
+        incrementEscrow(amountPerSecond);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, isMediaReplaying, courseType, course, incrementEscrow]);
+
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
     if (!currentSessionId || !token) return;
@@ -264,11 +276,19 @@ export default function CoursePlayerPage() {
     // Clear the ref immediately to prevent double-calls
     sessionIdRef.current = null;
     setSessionId(null);
+    
+    const totalAmount = pendingAmountRef.current;
+    pendingAmountRef.current = 0; // reset local escrow
 
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${currentSessionId}/end`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ totalAmount }),
+        keepalive: true
       });
     } catch (err) {
       console.error('[CoursePlayer] Failed to end session:', err);
@@ -279,6 +299,17 @@ export default function CoursePlayerPage() {
       }
     }
   }, [token]);
+
+  // Tab Close Handler (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionIdRef.current) {
+        endSession();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [endSession]);
 
   const selectLesson = async (index: number) => {
     if (index === currentLessonIndex) return;
@@ -329,17 +360,11 @@ export default function CoursePlayerPage() {
     }
   };
 
-  const handleEbookTick = async (sid: string) => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${sid}/tick`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('rheodemy_token')}`
-        }
-      });
-    } catch (err) {
-      console.error("Failed to tick ebook", err);
+  const handleEbookPageTurn = () => {
+    if (course) {
+      // For Ebooks, we charge a full minute's price per page for simplicity, or 10 cents.
+      // We will charge pricePerMinute for the page turn.
+      incrementEscrow(course.pricePerMinute);
     }
   };
 
@@ -350,7 +375,7 @@ export default function CoursePlayerPage() {
         if (sid) {
           // Charge for page 0
           if (highestPageReachedRef.current === 0) {
-            await handleEbookTick(sid);
+            handleEbookPageTurn();
           }
         }
       } else {
@@ -432,7 +457,7 @@ export default function CoursePlayerPage() {
       if (nextPage > highestPageReachedRef.current) {
         highestPageReachedRef.current = nextPage;
         if (sessionId) {
-          await handleEbookTick(sessionId);
+          handleEbookPageTurn();
         }
       }
     }

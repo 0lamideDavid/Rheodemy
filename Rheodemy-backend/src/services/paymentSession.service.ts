@@ -3,17 +3,12 @@
  *
  * Architecture: Static Dual-Pointer / Master Faucet
  * ──────────────────────────────────────────────────
- * - Payments are discrete (chunky ticker), not a continuous stream
- * - Every tick fires the full 5-step Open Payments pipeline via RafikiService
- * - Virtual balance is ONLY decremented on ILP SUCCESS — never on failure
- * - If ILP fails: session is immediately KILLED, ticker stops, Socket.io notifies client
- * - Active timers live in-memory (Map) — acceptable for hackathon demo
+ * - Virtual balance is decremented on session end via a single ILP payment
+ * - Active sessions live in-memory (Map) — acceptable for hackathon demo
  *
  * Session termination triggers:
  *   1. User calls POST /sessions/:id/end
- *   2. Virtual balance reaches $0
- *   3. ILP payment fails (session KILLED)
- *   4. Admin calls POST /sessions/:id/kill (Phase 5)
+ *   2. Admin calls POST /sessions/:id/kill (Phase 5)
  */
 
 import { prisma } from '../config/prisma';
@@ -26,13 +21,9 @@ import { SocketService } from '../socket/index';
 
 // ── Ticker state (in-memory) ──────────────────────────────────────────────────
 
-const activeTickers  = new Map<string, NodeJS.Timeout>();
-const tickCounters   = new Map<string, number>();
+// ── State (in-memory) ──────────────────────────────────────────────────
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
-const TICK_INTERVAL_MS  = Number(process.env.TICK_INTERVAL_MS  ?? 5000);
-
+const activeSessions = new Set<string>();
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -71,10 +62,7 @@ export interface SessionSummary {
 export class PaymentSessionService {
 
   /**
-   * Opens a new PaymentSession and starts the Chunky Ticker.
-   *
-   * The ticker runs independently of HTTP — it fires every TICK_INTERVAL_MS
-   * even if the client disconnects (Socket.io handles client notification).
+   * Opens a new PaymentSession.
    */
   static async startSession(input: StartSessionInput): Promise<{ sessionId: string }> {
     const { userId, courseId, lessonId } = input;
@@ -106,197 +94,104 @@ export class PaymentSessionService {
       },
     });
 
-    tickCounters.set(session.id, 0);
+    activeSessions.add(session.id);
 
     // Notify connected clients
     SocketService.emitSessionStarted(session.id, userId, courseId);
 
-    const lesson = lessonId ? await prisma.lesson.findUnique({ where: { id: lessonId } }) : null;
-
-    if (lesson?.contentType === 'EBOOK') {
-      // Ebooks don't have a time-based ticker, they are ticked manually per page
-      activeTickers.set(session.id, setTimeout(() => {}, 2147483647)); // Dummy timer to pass guard
-    } else {
-      // Start the continuous ticker for audio/video
-      const timer = setInterval(async () => {
-        try {
-          await PaymentSessionService._executeTick(session.id);
-        } catch (err) {
-          // _executeTick handles its own session killing on failure
-          // Only log unhandled errors here
-          console.error(`[Ticker] Unhandled error for session ${session.id}:`, err);
-        }
-      }, TICK_INTERVAL_MS);
-
-      activeTickers.set(session.id, timer);
-    }
-
-    const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
-    const dynamicPricePerTick = Number(course.pricePerMinute) / ticksPerMinute;
-
     console.log(
-      `[PaymentSession] ▶ Session ${session.id} started. ` +
-      `Ticker every ${TICK_INTERVAL_MS}ms @ $${dynamicPricePerTick.toFixed(6)}/tick`
+      `[PaymentSession] ▶ Session ${session.id} started.`
     );
 
     return { sessionId: session.id };
   }
 
   /**
-   * Internal tick execution — the core of the payment loop.
-   *
-   * FAIL-SAFE CONTRACT:
-   *   - ILP payment is attempted FIRST
-   *   - Virtual balance is ONLY updated if ILP succeeds
-   *   - If ILP fails → session is KILLED, ticker cleared, no charge applied
+   * Ends a session cleanly — called by the student clicking "Stop" or tab close.
    */
-  private static async _executeTick(sessionId: string): Promise<TickResult> {
+  static async endSession(sessionId: string, totalAmount: number): Promise<SessionSummary> {
+    activeSessions.delete(sessionId);
 
-    // 0. Quick in-memory guard
-    if (!activeTickers.has(sessionId)) {
-      return null as any;
-    }
-
-    // 1. Verify session is still ACTIVE and fetch course
     const session = await prisma.paymentSession.findUnique({
-      where: { id: sessionId },
-      include: { course: true }
+      where: { id: sessionId }
     });
 
     if (!session || session.status !== 'ACTIVE') {
-      PaymentSessionService._clearTicker(sessionId);
-      return null as any;
+      throw new AppError('Session not found or already ended', 400);
     }
 
-    const tickIndex = (tickCounters.get(sessionId) ?? 0) + 1;
-
-    const ticksPerMinute = 60000 / TICK_INTERVAL_MS;
-    const dynamicPricePerTick = Number(session.course.pricePerMinute) / ticksPerMinute;
-
-    // 2. Attempt ILP payment — if this throws, we do NOT touch the DB balance
+    // 2. Attempt ILP payment for the total amount
     let ilpResult;
-    try {
-      ilpResult = await RafikiService.executeTickPayment(dynamicPricePerTick);
-    } catch (ilpError) {
-      // ⚠️ ILP FAILED — kill the session immediately, no balance deduction
-      console.error(
-        `[Ticker] ✗ Tick ${tickIndex} FAILED for session ${sessionId}. ` +
-        `Killing session. Error:`, ilpError
-      );
+    if (totalAmount > 0) {
+      try {
+        ilpResult = await RafikiService.executeTickPayment(totalAmount);
+      } catch (ilpError) {
+        console.error(
+          `[PaymentSession] ✗ Final payment FAILED for session ${sessionId}. ` +
+          `Killing session. Error:`, ilpError
+        );
+        return await PaymentSessionService._killSession(sessionId, 'ILP payment failed');
+      }
 
-      await PaymentSessionService._killSession(sessionId, 'ILP payment failed');
-      return null as any; // Return gracefully so interval handler doesn't log unhandled error
+      // 3. ILP succeeded — now safely record in DB within a transaction
+      const platformFee  = parseFloat((totalAmount * 0.1).toFixed(9));  // 10% cut
+      const netAmount    = parseFloat((totalAmount - platformFee).toFixed(9));
+
+      await prisma.$transaction(async (tx) => {
+        const transaction = await tx.transaction.create({
+          data: {
+            sessionId,
+            amount:       totalAmount,
+            platformFee,
+            netAmount,
+            currency:     RafikiConfig.assetCode,
+            ilpPacketRef: ilpResult.outgoingPaymentId,
+            tickIndex:    1,
+          },
+        });
+
+        await tx.payout.create({
+          data: {
+            transactionId:   transaction.id,
+            instructorWallet: process.env.TEACHER_WALLET_ADDRESS!,
+            amount:           netAmount,
+            currency:         RafikiConfig.assetCode,
+            status:           'SUCCESS',
+            ilpPacketRef:     ilpResult.outgoingPaymentId,
+          },
+        });
+
+        await tx.paymentSession.update({
+          where: { id: sessionId },
+          data:  { totalPaid: { increment: totalAmount } },
+        });
+      });
     }
-
-    // 3. ILP succeeded — now safely record in DB within a transaction
-    const platformFee  = parseFloat((dynamicPricePerTick * 0.1).toFixed(9));  // 10% cut
-    const netAmount    = parseFloat((dynamicPricePerTick - platformFee).toFixed(9));
-
-    // Atomic DB write — all three records succeed or none do
-    const { transaction, payout, updatedSession } = await prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.create({
-        data: {
-          sessionId,
-          amount:       dynamicPricePerTick,
-          platformFee,
-          netAmount,
-          currency:     RafikiConfig.assetCode,
-          ilpPacketRef: ilpResult.outgoingPaymentId,
-          tickIndex,
-        },
-      });
-
-      const payout = await tx.payout.create({
-        data: {
-          transactionId:   transaction.id,
-          instructorWallet: process.env.TEACHER_WALLET_ADDRESS!,
-          amount:           netAmount,
-          currency:         RafikiConfig.assetCode,
-          status:           'SUCCESS',
-          ilpPacketRef:     ilpResult.outgoingPaymentId,
-        },
-      });
-
-      const updatedSession = await tx.paymentSession.update({
-        where: { id: sessionId },
-        data:  { totalPaid: { increment: dynamicPricePerTick } },
-      });
-
-      return { transaction, payout, updatedSession };
-    });
-    tickCounters.set(sessionId, tickIndex);
-
-    // ── FX conversion for display layer ────────────────────────────────────
-    const displayCurrency = process.env.DISPLAY_CURRENCY ?? 'NGN';
-    const fx = FxService.convert(dynamicPricePerTick, 'USD', displayCurrency);
-    const totalPaidLocal  = FxService.convert(
-      Number(updatedSession.totalPaid), 'USD', displayCurrency
-    ).toAmount;
-
-    const result: TickResult = {
-      transactionId:  transaction.id,
-      payoutId:       payout.id,
-      amountPaid:     dynamicPricePerTick,
-      currency:       RafikiConfig.assetCode,
-      localAmount:    fx.toAmount,
-      localCurrency:  displayCurrency,
-      fxRate:         fx.rate,
-      ilpRef:         ilpResult.outgoingPaymentId,
-      tickIndex,
-      totalPaid:      Number(updatedSession.totalPaid),
-      totalPaidLocal,
-    };
-
-    console.log(
-      `[Ticker] ✓ Tick ${tickIndex} | Session: ${sessionId} | ` +
-      `$${dynamicPricePerTick.toFixed(6)} USD (${fx.toAmount} ${displayCurrency}) | ` +
-      `Total: $${Number(updatedSession.totalPaid).toFixed(6)}`
-    );
-
-    // Emit to Socket.io clients in this session room
-    SocketService.emitTick(sessionId, result);
-
-    return result;
-  }
-
-  /**
-   * Manually executes a single tick (used for per-page Ebook billing).
-   */
-  static async tickSession(sessionId: string): Promise<TickResult> {
-    return await PaymentSessionService._executeTick(sessionId);
-  }
-
-  /**
-   * Ends a session cleanly — called by the student clicking "Stop".
-   */
-  static async endSession(sessionId: string): Promise<SessionSummary> {
-    PaymentSessionService._clearTicker(sessionId);
 
     const now = new Date();
-    const session = await prisma.paymentSession.update({
+    const updatedSession = await prisma.paymentSession.update({
       where: { id: sessionId },
       data:  { status: 'ENDED', endedAt: now },
     });
 
-    const tickCount = tickCounters.get(sessionId) ?? 0;
-    tickCounters.delete(sessionId);
-
-    logger.info(`[PaymentSession] ■ Session ${sessionId} ENDED. $${Number(session.totalPaid).toFixed(6)} across ${tickCount} ticks.`);
+    logger.info(`[PaymentSession] ■ Session ${sessionId} ENDED. $${Number(updatedSession.totalPaid).toFixed(6)} total paid.`);
 
     const summary: SessionSummary = {
       sessionId,
       status:    'ENDED',
-      totalPaid: Number(session.totalPaid),
+      totalPaid: Number(updatedSession.totalPaid),
       currency:  RafikiConfig.assetCode,
-      startedAt: session.startedAt,
+      startedAt: updatedSession.startedAt,
       endedAt:   now,
-      tickCount,
+      tickCount: totalAmount > 0 ? 1 : 0,
     };
 
     SocketService.emitSessionEnded(sessionId, summary);
 
     return summary;
   }
+
+
 
   /**
    * Returns current session status — used by polling or admin dashboard.
@@ -321,7 +216,7 @@ export class PaymentSessionService {
    * Returns all currently ACTIVE session IDs (for admin dashboard).
    */
   static getActiveSessionIds(): string[] {
-    return Array.from(activeTickers.keys());
+    return Array.from(activeSessions);
   }
 
   /**
@@ -335,7 +230,7 @@ export class PaymentSessionService {
    * Internal kill implementation — used by both ILP failure and kill switch.
    */
   static async _killSession(sessionId: string, reason: string): Promise<SessionSummary> {
-    PaymentSessionService._clearTicker(sessionId);
+    activeSessions.delete(sessionId);
 
     const now = new Date();
     const session = await prisma.paymentSession.update({
@@ -343,10 +238,7 @@ export class PaymentSessionService {
       data:  { status: 'KILLED', endedAt: now, killSwitchAt: now },
     });
 
-    const tickCount = tickCounters.get(sessionId) ?? 0;
-    tickCounters.delete(sessionId);
-
-    logger.info(`[PaymentSession] ✗ Session ${sessionId} KILLED. Reason: ${reason}. Ticks: ${tickCount}.`);
+    logger.info(`[PaymentSession] ✗ Session ${sessionId} KILLED. Reason: ${reason}.`);
 
     SocketService.emitSessionKilled(sessionId, reason);
 
@@ -357,19 +249,7 @@ export class PaymentSessionService {
       currency:  RafikiConfig.assetCode,
       startedAt: session.startedAt,
       endedAt:   now,
-      tickCount,
+      tickCount: 0,
     };
-  }
-
-  /**
-   * Clears the interval timer for a session.
-   */
-  static _clearTicker(sessionId: string): void {
-    const timer = activeTickers.get(sessionId);
-    if (timer) {
-      clearInterval(timer);
-      activeTickers.delete(sessionId);
-      console.log(`[Ticker] Stopped for session ${sessionId}`);
-    }
   }
 }
