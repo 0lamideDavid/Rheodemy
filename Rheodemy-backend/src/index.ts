@@ -135,63 +135,79 @@ async function ensureDefaultUsers() {
         ]
       }
     });
-    if (coursesWithoutThumbnails > 0 || outdatedLessons > 0) {
-      logger.info("🗑️ Re-seeding instructor courses to apply new featured images & reliable videos...");
+    const oldCourseCount = await prisma.course.count({
+      where: { instructorId: instructor.id }
+    });
+    // Force reseed if any old courses exist
+    if (oldCourseCount > 0) {
+      logger.info("🗑️ Re-seeding instructor courses to apply new screenshot UI mock courses...");
       await prisma.paymentSession.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.enrollment.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.lesson.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
 
     const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
-    if (courseCount === 0) {
       const dummyVideoUrl = "jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs";
       
       // Course 1
       const c1 = await prisma.course.create({
         data: {
-          title: "Web Development for Beginners",
-          description: "A comprehensive introduction to modern web technologies. Learn HTML, CSS, JavaScript, and start building websites.",
-          pricePerMinute: 0.05,
+          title: "Mastering TypeScript",
+          description: "Learn advanced patterns, strict mode, and how to build robust enterprise applications.",
+          pricePerMinute: 0.12,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c1.id, title: "Module 1: HTML Structure & Tags", description: "Learn how to structure web pages using HTML.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c1.id, title: "Module 1: CSS Foundations", description: "Learn how to style and design your layouts.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
-          { courseId: c1.id, title: "Module 2: Responsive Design & Grid", description: "Design web pages that look great on any device.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
-          { courseId: c1.id, title: "Module 2: JavaScript Introduction", description: "Learn JavaScript programming fundamentals.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
-          { courseId: c1.id, title: "Module 2: DOM Manipulation", description: "Connect HTML elements with JavaScript logic.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+          { courseId: c1.id, title: "Module 1: Strict Mode", description: "Learn how to use strict mode.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c1.id, title: "Module 2: Advanced Types", description: "Generics and mapped types.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
         ]
       });
 
       // Course 2
       const c2 = await prisma.course.create({
         data: {
-          title: "Mastering React and Next.js",
-          description: "Take your frontend development skills to the next level. Build robust applications with Server Components and the Next.js App Router.",
-          pricePerMinute: 0.15,
+          title: "The 10x Designer Handbook",
+          description: "A definitive guide to systems thinking, layout architecture, and rapid prototyping.",
+          pricePerMinute: 0.05,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c2.id, title: "Module 1: Component Architecture", description: "Understand component composition, props, and design.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c2.id, title: "Module 1: State & Lifecycle Hooks", description: "Master React state, hooks, and side effects.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
-          { courseId: c2.id, title: "Module 2: Next.js Routing", description: "Learn layout architecture and dynamic routes.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
-          { courseId: c2.id, title: "Module 2: Server Components & SSR", description: "Understand data rendering models and hydration.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
-          { courseId: c2.id, title: "Module 2: Custom Optimization Techniques", description: "Optimize bundle sizes, images, and fonts.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+          { courseId: c2.id, title: "Chapter 1: Systems Thinking", description: "Design systems.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c2.id, title: "Chapter 2: Layouts", description: "Grid and flex.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
         ]
       });
 
       // Course 3
       const c3 = await prisma.course.create({
+        data: {
+          title: "Y Combinator: Startup School (Audio)",
+          description: "Listen to the world's best startup advice while commuting or running.",
+          pricePerMinute: 0.02,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600&auto=format&fit=crop"
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c3.id, title: "Episode 1: How to get ideas", description: "Paul Graham on ideas.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c3.id, title: "Episode 2: MVP", description: "Building a minimum viable product.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
+        ]
+      });
+
+      // Course 4
+      const c4 = await prisma.course.create({
         data: {
           title: "AI and Machine Learning Foundations",
           description: "Explore the mathematics and algorithms behind modern AI. Build linear models, basic neural networks, and deploy them.",
@@ -199,20 +215,17 @@ async function ensureDefaultUsers() {
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1677442136019-21780efad99a?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c3.id, title: "Module 1: Linear Algebra & Probability", description: "Mathematical foundations needed for machine learning.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c3.id, title: "Module 1: Data Cleaning & Wrangling", description: "How to prepare raw datasets for model training.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
-          { courseId: c3.id, title: "Module 2: Supervised Learning & Regression", description: "Implement your first linear regression models.", contentUrl: dummyVideoUrl, durationSec: 500, order: 3 },
-          { courseId: c3.id, title: "Module 2: Neural Networks & Layers", description: "Understand perceptrons and backpropagation.", contentUrl: dummyVideoUrl, durationSec: 600, order: 4 },
-          { courseId: c3.id, title: "Module 2: Cloud Model Deployment", description: "Deploy your model to an endpoint for client usage.", contentUrl: dummyVideoUrl, durationSec: 700, order: 5 },
+          { courseId: c4.id, title: "Module 1: Linear Algebra", description: "Math foundations.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
+          { courseId: c4.id, title: "Module 2: Neural Networks", description: "Backpropagation.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
         ]
       });
 
-      logger.info("👤 Auto-created 3 default courses for instructor with featured images");
+      logger.info("👤 Auto-created 4 default courses for instructor with featured images");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
