@@ -444,7 +444,6 @@ export default function CoursePlayerPage() {
     }
     if (currentPage > 0) {
       setCurrentPage(prev => prev - 1);
-      resetActivityTimer();
     }
   };
 
