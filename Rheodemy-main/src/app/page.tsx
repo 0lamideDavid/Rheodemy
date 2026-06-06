@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, PlayCircle, Wallet, Layers, ShieldCheck, Sparkles, ChevronRight, BookOpen, Headphones } from "lucide-react";
+import MuxPlayer from "@mux/mux-player-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -211,12 +212,10 @@ export default function MarketingLandingPage() {
 
             {/* Video Content */}
             <div className="aspect-video bg-black flex items-center justify-center p-2">
-              <video 
+              <MuxPlayer 
                 className="w-full h-full rounded-2xl object-cover" 
-                src="https://www.w3schools.com/html/mov_bbb.mp4" 
-                controls 
-                autoPlay
-                playsInline
+                playbackId="jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs" 
+                autoPlay="muted"
               />
             </div>
 
