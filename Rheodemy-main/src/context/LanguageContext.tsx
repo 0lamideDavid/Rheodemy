@@ -229,7 +229,7 @@ const translations: Record<LanguageCode, TranslationDict> = {
     totalStreamed: "Total Streamed",
     creatorShare: "Creator (80%)",
     platformShare: "Rheodemy (15%)",
-    bursaryShare: "Bursary Fund (5%)",
+    bursaryShare: "Dispute Reserve (5%)",
     aiTranslated: "AI Translated",
     courseModules: "Course Modules",
 
