@@ -202,6 +202,7 @@ export default function CreatorDashboard() {
               <div className="w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_8px_rgba(0,212,200,0.8)] animate-pulse" />
               <span className="text-xs uppercase tracking-wider font-semibold">{t.totalRevenue}</span>
             </div>
+            <div>
               <p className="text-5xl font-mono font-light tracking-tight text-foreground">
                 {walletBalance === null ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : `$${walletBalance.toFixed(2)}`}
               </p>
