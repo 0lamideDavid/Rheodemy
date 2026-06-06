@@ -145,7 +145,14 @@ export default function LearnerDashboard() {
     
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+      
+    const rank = getCourseFormatRank(course.title);
+    const matchesFormat = filter === 'all' || 
+      (filter === 'video' && rank === 1) || 
+      (filter === 'ebook' && rank === 2) || 
+      (filter === 'audio' && rank === 3);
+
+    return matchesSearch && matchesFormat;
   }).sort((a, b) => getCourseFormatRank(a.title) - getCourseFormatRank(b.title));
 
   return (
