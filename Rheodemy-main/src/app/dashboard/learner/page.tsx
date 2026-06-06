@@ -19,6 +19,33 @@ interface Course {
 
 const UNSPLASH_FALLBACK = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop';
 
+const PRE_RELEASE_COURSES = [
+  {
+    id: 'mock-1',
+    title: 'Advanced Rust Web Services',
+    description: 'Build ultra-fast, memory-safe APIs and microservices using Actix-Web, Axum, and Sqlx.',
+    pricePerMinute: 0.15,
+    cap: 20.00,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop',
+    instructor: { firstName: 'Dr. Evelyn', lastName: 'Foster' },
+    rating: 4.8,
+    duration: '10h 15m',
+    type: 'video',
+  },
+  {
+    id: 'mock-2',
+    title: 'Zero to One: Product Strategy',
+    description: 'Learn how to build companies that create new things, going from 0 to 1 rather than 1 to n.',
+    pricePerMinute: 0.08,
+    cap: 10.00,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000&auto=format&fit=crop',
+    instructor: { firstName: 'Peter', lastName: 'Thiel' },
+    rating: 4.7,
+    duration: '~5h read',
+    type: 'ebook',
+  }
+];
+
 interface Feedback {
   id: string;
   rating: number;
@@ -173,37 +200,82 @@ export default function LearnerDashboard() {
           <div className="col-span-full py-20 text-center text-muted">
             <p>{courses.length === 0 ? 'No courses available yet. Check back soon!' : t.noContent}</p>
           </div>
-        ) : (
-          filteredCourses.map((course) => (
-            <Link 
-              href={`/dashboard/learner/course/${course.id}`} 
-              key={course.id} 
-              className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
-            >
-              <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 group-hover:border-primary/20 transition-colors">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
-                <img src={course.thumbnailUrl || UNSPLASH_FALLBACK} alt={course.title} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500 group-hover:scale-105" />
-              </div>
-
-              <div className="p-6 space-y-4 flex-1 flex flex-col relative z-20">
-                <div className="flex justify-between items-start gap-2">
-                  <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
-                  <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
-                    ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min
-                  </span>
-                </div>
-                <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>
-                <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary animate-pulse" /> 5.0</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(course.lessons?.length ?? course._count?.lessons ?? 0)} lesson{(course.lessons?.length ?? course._count?.lessons ?? 0) !== 1 ? 's' : ''}</span>
+          <>
+            {PRE_RELEASE_COURSES.filter(course => 
+              (filter === 'all' || filter === course.type) && 
+              (course.title.toLowerCase().includes(searchQuery.toLowerCase()) || course.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            ).map((course) => (
+              <div key={course.id} className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group border border-white/5 flex flex-col relative opacity-60 cursor-not-allowed">
+                <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 transition-colors">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
+                  
+                  {/* Badges */}
+                  <div className="absolute top-4 left-4 z-20">
+                    <div className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 flex items-center gap-1.5 uppercase">
+                      {course.type === 'video' ? <Play className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {course.type}
+                    </div>
                   </div>
-                  <div>{course.instructor.firstName} {course.instructor.lastName}</div>
+                  <div className="absolute top-4 right-4 z-20">
+                    <div className="bg-purple-500/20 backdrop-blur-md text-purple-300 text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-md border border-purple-500/30 flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+                      <Sparkles className="w-3 h-3" /> Pre-Release
+                    </div>
+                  </div>
+
+                  <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover opacity-30" />
+                </div>
+
+                <div className="p-6 space-y-4 flex-1 flex flex-col relative z-20">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
+                    <div className="flex flex-col items-end">
+                      <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
+                        ${course.pricePerMinute.toFixed(2)}/min
+                      </span>
+                      <span className="text-[9px] text-muted font-mono mt-1">CAP: ${course.cap.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>
+                  <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary" /> {course.rating}</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {course.duration}</span>
+                    </div>
+                    <div>{course.instructor.firstName} {course.instructor.lastName}</div>
+                  </div>
                 </div>
               </div>
-            </Link>
-          ))
-        )}
+            ))}
+            
+            {filteredCourses.map((course) => (
+              <Link 
+                href={`/dashboard/learner/course/${course.id}`} 
+                key={course.id} 
+                className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
+              >
+                <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 group-hover:border-primary/20 transition-colors">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
+                  <img src={course.thumbnailUrl || UNSPLASH_FALLBACK} alt={course.title} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500 group-hover:scale-105" />
+                </div>
+
+                <div className="p-6 space-y-4 flex-1 flex flex-col relative z-20">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
+                    <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
+                      ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>
+                  <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary animate-pulse" /> 5.0</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(course.lessons?.length ?? course._count?.lessons ?? 0)} lesson{(course.lessons?.length ?? course._count?.lessons ?? 0) !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div>{course.instructor.firstName} {course.instructor.lastName}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </>
       </div>
 
       {/* Local Interactive Feedback Section */}
