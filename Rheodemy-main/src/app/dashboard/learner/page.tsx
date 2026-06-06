@@ -155,6 +155,15 @@ export default function LearnerDashboard() {
     return matchesSearch && matchesFormat;
   }).sort((a, b) => getCourseFormatRank(a.title) - getCourseFormatRank(b.title));
 
+  const filteredPreRelease = PRE_RELEASE_COURSES.filter(course => 
+    (filter === 'all' || filter === course.type) && 
+    (course.title.toLowerCase().includes(searchQuery.toLowerCase()) || course.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  ).sort((a, b) => {
+    const rankA = a.type === 'video' ? 1 : a.type === 'ebook' ? 2 : 3;
+    const rankB = b.type === 'video' ? 1 : b.type === 'ebook' ? 2 : 3;
+    return rankA - rankB;
+  });
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-12">
       
@@ -228,9 +237,9 @@ export default function LearnerDashboard() {
               </div>
             </div>
           ))
-        ) : filteredCourses.length === 0 && courses.length === 0 ? (
+        ) : filteredCourses.length === 0 && filteredPreRelease.length === 0 ? (
           <div className="col-span-full py-20 text-center text-muted">
-            <p>No courses available yet. Check back soon!</p>
+            <p>{searchQuery ? 'No courses found matching your search.' : 'No courses available yet. Check back soon!'}</p>
           </div>
         ) : (
           <>
@@ -275,14 +284,7 @@ export default function LearnerDashboard() {
               </div>
             )})}
 
-            {PRE_RELEASE_COURSES.filter(course => 
-              (filter === 'all' || filter === course.type) && 
-              (course.title.toLowerCase().includes(searchQuery.toLowerCase()) || course.description.toLowerCase().includes(searchQuery.toLowerCase()))
-            ).sort((a, b) => {
-              const rankA = a.type === 'video' ? 1 : a.type === 'ebook' ? 2 : 3;
-              const rankB = b.type === 'video' ? 1 : b.type === 'ebook' ? 2 : 3;
-              return rankA - rankB;
-            }).map((course) => (
+            {filteredPreRelease.map((course) => (
               <div 
                 key={course.id} 
                 onClick={() => setSelectedPreRelease(course)}
