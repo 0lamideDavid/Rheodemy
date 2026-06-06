@@ -123,30 +123,20 @@ async function ensureDefaultUsers() {
       logger.info("👤 Auto-created default student user & wallet");
     }
 
-    // 4. Create default courses for instructor if none exist (or recreate if thumbnails are missing)
-    const coursesWithoutThumbnails = await prisma.course.count({
-      where: { instructorId: instructor.id, thumbnailUrl: null }
-    });
-    const outdatedLessons = await prisma.lesson.count({
-      where: { 
-        OR: [
-          { contentUrl: { contains: "BigBuckBunny" } },
-          { contentUrl: { contains: "mov_bbb.mp4" } }
-        ]
-      }
-    });
+    // 4. Create default courses for instructor if none exist
     const oldCourseCount = await prisma.course.count({
       where: { instructorId: instructor.id }
     });
     // Force reseed if any old courses exist
     if (oldCourseCount > 0) {
       logger.info("🗑️ Re-seeding instructor courses to apply new screenshot UI mock courses...");
+      await prisma.payout.deleteMany({ where: { transaction: { session: { course: { instructorId: instructor.id } } } } });
+      await prisma.transaction.deleteMany({ where: { session: { course: { instructorId: instructor.id } } } });
       await prisma.paymentSession.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.enrollment.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.lesson.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
 
-    const courseCount = await prisma.course.count({ where: { instructorId: instructor.id } });
       const dummyVideoUrl = "jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs";
       
       // Course 1
