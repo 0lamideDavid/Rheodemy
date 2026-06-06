@@ -169,8 +169,8 @@ export default function MarketingLandingPage() {
             <p className="text-xl text-foreground/80 max-w-2xl mx-auto mb-10">
               {t.creatorSectionDesc}
             </p>
-            <Link href="/become-creator" className="inline-flex items-center gap-2 px-8 py-4 bg-foreground text-background font-bold text-lg rounded-full hover:opacity-90 hover:scale-105 transition-all shadow-xl">
-              {t.creatorSectionBtn} <ChevronRight className="w-5 h-5 rtl:rotate-180" />
+            <Link href="/onboarding" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-black font-bold text-lg rounded-full hover:bg-primary/90 hover:scale-105 transition-all shadow-[0_0_30px_rgba(0,212,200,0.3)]">
+              {t.landingCTA} <ArrowRight className="w-5 h-5 rtl:rotate-180" />
             </Link>
           </div>
         </div>
