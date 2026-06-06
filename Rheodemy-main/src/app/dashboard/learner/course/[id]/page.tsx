@@ -132,6 +132,38 @@ export default function CoursePlayerPage() {
   // Media High-Water Mark State (for skipping/rewinding)
   const highWaterMarkRef = useRef(0);
   const [isMediaReplaying, setIsMediaReplaying] = useState(false);
+  
+  // Feature 1: Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Feature 2: Skip Forward State
+  const lastKnownTimeRef = useRef(0);
+  const skipCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [skippedAmount, setSkippedAmount] = useState(0);
+  const [skippedSeconds, setSkippedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (isPlaying && courseType !== 'ebook') {
+      skipCheckTimerRef.current = setInterval(() => {
+        if (mediaRef.current && !showSkipModal) {
+          lastKnownTimeRef.current = mediaRef.current.currentTime;
+        }
+      }, 2000);
+    }
+    return () => {
+      if (skipCheckTimerRef.current) clearInterval(skipCheckTimerRef.current);
+    }
+  }, [isPlaying, courseType, showSkipModal, mediaRef]);
+
+  // Clean up payment_allowed on unmount
+  useEffect(() => {
+    return () => {
+      if (activeLesson?.id) {
+        sessionStorage.removeItem(`payment_allowed_${activeLesson.id}`);
+      }
+    };
+  }, [activeLesson?.id]);
 
   // Ebook High-Water Mark State
   const highestPageReachedRef = useRef(0);
@@ -390,6 +422,12 @@ export default function CoursePlayerPage() {
         mediaRef.current.pause();
         // setIsPlaying and endSession are handled by onPause
       } else {
+        const hasAllowed = sessionStorage.getItem(`payment_allowed_${activeLesson?.id}`);
+        if (!hasAllowed) {
+          setShowPaymentModal(true);
+          return;
+        }
+
         const playPromise = mediaRef.current.play();
         if (playPromise !== undefined) {
           playPromise.catch(error => {
@@ -418,6 +456,19 @@ export default function CoursePlayerPage() {
       const current = mediaRef.current.currentTime;
       const duration = mediaRef.current.duration;
       setProgress((current / duration) * 100);
+      
+      if (!showSkipModal) {
+        const timeDiff = current - lastKnownTimeRef.current;
+        if (timeDiff > 15) {
+          mediaRef.current.pause();
+          setSkippedSeconds(timeDiff);
+          setSkippedAmount((timeDiff / 60) * (course?.pricePerMinute || 0));
+          setShowSkipModal(true);
+          return;
+        } else if (timeDiff < -1) {
+          lastKnownTimeRef.current = current;
+        }
+      }
       
       // High-Water Mark Logic: Only charge for new sections
       if (current > highWaterMarkRef.current) {
@@ -1067,6 +1118,81 @@ export default function CoursePlayerPage() {
         </div>
 
       </div>
+      
+      {/* Payment Permission Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden space-y-4">
+            <h3 className="text-xl font-bold">Enable Payment Streaming</h3>
+            <p className="text-muted text-sm leading-relaxed">
+              This lesson streams at ${(course?.pricePerMinute || 0).toFixed(2)}/min via Interledger Protocol. You'll only be charged for content you actually watch. Rewinding is always free.
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem(`payment_allowed_${activeLesson?.id}`, 'true');
+                  setShowPaymentModal(false);
+                  togglePlay();
+                }}
+                className="w-full bg-primary text-black font-medium py-2.5 rounded-xl transition-transform hover:scale-[1.02]"
+              >
+                Allow Streaming
+              </button>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skip Forward Warning Modal */}
+      {showSkipModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden space-y-4">
+            <h3 className="text-xl font-bold">Skip Forward?</h3>
+            <p className="text-muted text-sm leading-relaxed">
+              You're skipping {Math.round(skippedSeconds)} seconds of content.
+              <br />
+              Estimated charge: <span className="text-primary font-mono">${skippedAmount.toFixed(4)}</span>
+              <br />
+              Skipped content counts toward your session total.
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => {
+                  incrementEscrow(skippedAmount);
+                  if (mediaRef.current) {
+                    highWaterMarkRef.current = mediaRef.current.currentTime;
+                    lastKnownTimeRef.current = mediaRef.current.currentTime;
+                    setShowSkipModal(false);
+                    mediaRef.current.play();
+                  }
+                }}
+                className="w-full bg-primary text-black font-medium py-2.5 rounded-xl transition-transform hover:scale-[1.02]"
+              >
+                Skip & Pay
+              </button>
+              <button
+                onClick={() => {
+                  if (mediaRef.current) {
+                    mediaRef.current.currentTime = lastKnownTimeRef.current;
+                    setShowSkipModal(false);
+                    mediaRef.current.play();
+                  }
+                }}
+                className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
