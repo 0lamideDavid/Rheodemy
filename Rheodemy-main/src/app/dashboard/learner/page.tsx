@@ -244,10 +244,9 @@ export default function LearnerDashboard() {
         ) : (
           <>
             {filteredCourses.map((course) => {
-              const isAudioOrEbook = course.title.toLowerCase().includes('handbook') || course.title.toLowerCase().includes('audio') || course.title.toLowerCase().includes('podcast');
               return (
               <div 
-                onClick={() => isAudioOrEbook ? setShowComingSoon(true) : router.push(`/dashboard/learner/course/${course.id}`)} 
+                onClick={() => router.push(`/dashboard/learner/course/${course.id}`)} 
                 key={course.id} 
                 className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
               >
