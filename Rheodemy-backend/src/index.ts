@@ -127,9 +127,9 @@ async function ensureDefaultUsers() {
     const oldCourseCount = await prisma.course.count({
       where: { instructorId: instructor.id }
     });
-    // Force reseed if any old courses exist
-    if (oldCourseCount > 0) {
-      logger.info("🗑️ Re-seeding instructor courses to apply new screenshot UI mock courses...");
+    // Force reseed if any old courses exist or create them if none exist
+    if (oldCourseCount >= 0) {
+      logger.info("🗑️ Seeding instructor courses (wiping old mock courses if any)...");
       await prisma.payout.deleteMany({ where: { transaction: { session: { course: { instructorId: instructor.id } } } } });
       await prisma.transaction.deleteMany({ where: { session: { course: { instructorId: instructor.id } } } });
       await prisma.paymentSession.deleteMany({ where: { course: { instructorId: instructor.id } } });
@@ -196,26 +196,7 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      // Course 4
-      const c4 = await prisma.course.create({
-        data: {
-          title: "AI and Machine Learning Foundations",
-          description: "Explore the mathematics and algorithms behind modern AI. Build linear models, basic neural networks, and deploy them.",
-          pricePerMinute: 0.30,
-          currency: "USD",
-          status: "PUBLISHED",
-          instructorId: instructor.id,
-          thumbnailUrl: "https://plus.unsplash.com/premium_photo-1683121710572-7723bd2e235d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8YWklMjBhbmQlMjBtYWNoaW5lJTIwbGVhcm5pbmd8ZW58MHx8MHx8fDA%3D"
-        }
-      });
-      await prisma.lesson.createMany({
-        data: [
-          { courseId: c4.id, title: "Module 1: Linear Algebra", description: "Math foundations.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c4.id, title: "Module 2: Neural Networks", description: "Backpropagation.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
-        ]
-      });
-
-      logger.info("👤 Auto-created 4 default courses for instructor with featured images");
+      logger.info("👤 Auto-created 3 default courses for instructor with featured images");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
