@@ -43,7 +43,7 @@ async function main() {
   }
 
   // Update Course 5: Tech Leaders Podcast -> AI and Machine Learning Foundations
-  const c5 = await prisma.course.findFirst({
+  let c5 = await prisma.course.findFirst({
     where: { title: { in: ["Tech Leaders Podcast (Audio)", "AI and Machine Learning Foundations"] } }
   });
 
@@ -52,25 +52,61 @@ async function main() {
       where: { id: c5.id },
       data: {
         title: "AI and Machine Learning Foundations",
-        description: "Discover the fundamentals of AI through our comprehensive audio guide.",
+        description: "Discover the fundamentals of AI through our comprehensive guide.",
+        pricePerMinute: 0.15,
+        thumbnailUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=600&auto=format&fit=crop"
       }
     });
 
-    const l5 = await prisma.lesson.findFirst({
-      where: { courseId: c5.id }
+    // Delete existing lessons and recreate the 5 video lessons
+    await prisma.lesson.deleteMany({ where: { courseId: c5.id } });
+    
+    await prisma.lesson.createMany({
+      data: [
+        { courseId: c5.id, title: "Module 1: Introduction", description: "What is AI?", contentUrl: "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY", contentType: 'VIDEO', durationSec: 300, order: 1 },
+        { courseId: c5.id, title: "Module 2: Machine Learning", description: "Basics of ML.", contentUrl: "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY", contentType: 'VIDEO', durationSec: 300, order: 2 },
+        { courseId: c5.id, title: "Module 3: Neural Networks", description: "Deep learning.", contentUrl: "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY", contentType: 'VIDEO', durationSec: 300, order: 3 },
+        { courseId: c5.id, title: "Module 4: NLP", description: "Natural Language Processing.", contentUrl: "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY", contentType: 'VIDEO', durationSec: 300, order: 4 },
+        { courseId: c5.id, title: "Module 5: Future of AI", description: "Ethics and future.", contentUrl: "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY", contentType: 'VIDEO', durationSec: 300, order: 5 },
+      ]
     });
+    console.log('Updated AI course with 5 video lessons.');
+  }
 
-    if (l5) {
-      await prisma.lesson.update({
-        where: { id: l5.id },
+  // Create Course 6: The African Tech Podcast
+  const c6Exists = await prisma.course.findFirst({
+    where: { title: "The African Tech Podcast — Learning Series" }
+  });
+
+  if (!c6Exists) {
+    const instructor = await prisma.user.findFirst({ where: { role: 'INSTRUCTOR' } });
+    if (instructor) {
+      const c6 = await prisma.course.create({
         data: {
-          title: "Introduction to AI — Audio Guide",
-          contentUrl: "https://rheodemymvp.vercel.app/audio/intro-ai-audio.mp3",
-          contentType: "AUDIO"
+          title: "The African Tech Podcast — Learning Series",
+          description: "Conversations about technology, startups, and innovation across Africa. Listen and learn from founders, engineers, and investors building the future.",
+          pricePerMinute: 0.50,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600&auto=format&fit=crop"
         }
       });
-      console.log('Updated audio lesson.');
+      await prisma.lesson.create({
+        data: {
+          courseId: c6.id,
+          title: "Episode 1 — Introduction to AI in Africa",
+          description: "Audio podcast.",
+          contentUrl: "https://rheodemymvp.vercel.app/audio/intro-ai-audio.mp3",
+          contentType: 'AUDIO',
+          durationSec: 180,
+          order: 1
+        }
+      });
+      console.log('Created Podcast course.');
     }
+  } else {
+    console.log('Podcast course already exists.');
   }
 
   console.log('Done.');

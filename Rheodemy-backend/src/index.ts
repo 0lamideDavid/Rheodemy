@@ -208,12 +208,34 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      // Course 5 - AUDIO
+      // Course 5 - AI Video Course
       const c5 = await prisma.course.create({
         data: {
           title: "AI and Machine Learning Foundations",
-          description: "Discover the fundamentals of AI through our comprehensive audio guide.",
-          pricePerMinute: 0.03,
+          description: "Discover the fundamentals of AI through our comprehensive guide.",
+          pricePerMinute: 0.15,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=600&auto=format&fit=crop"
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c5.id, title: "Module 1: Introduction", description: "What is AI?", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 1 },
+          { courseId: c5.id, title: "Module 2: Machine Learning", description: "Basics of ML.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 2 },
+          { courseId: c5.id, title: "Module 3: Neural Networks", description: "Deep learning.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 3 },
+          { courseId: c5.id, title: "Module 4: NLP", description: "Natural Language Processing.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 4 },
+          { courseId: c5.id, title: "Module 5: Future of AI", description: "Ethics and future.", contentUrl: dummyVideoUrl, contentType: 'VIDEO', durationSec: 300, order: 5 },
+        ]
+      });
+
+      // Course 6 - AUDIO
+      const c6 = await prisma.course.create({
+        data: {
+          title: "The African Tech Podcast — Learning Series",
+          description: "Conversations about technology, startups, and innovation across Africa. Listen and learn from founders, engineers, and investors building the future.",
+          pricePerMinute: 0.50,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
@@ -222,7 +244,7 @@ async function ensureDefaultUsers() {
       });
       await prisma.lesson.createMany({
         data: [
-          { courseId: c5.id, title: "Introduction to AI — Audio Guide", description: "Audio podcast.", contentUrl: "https://rheodemymvp.vercel.app/audio/intro-ai-audio.mp3", contentType: 'AUDIO', durationSec: 1200, order: 1 }
+          { courseId: c6.id, title: "Episode 1 — Introduction to AI in Africa", description: "Audio podcast.", contentUrl: "https://rheodemymvp.vercel.app/audio/intro-ai-audio.mp3", contentType: 'AUDIO', durationSec: 180, order: 1 }
         ]
       });
 
