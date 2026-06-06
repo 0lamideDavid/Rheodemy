@@ -622,7 +622,7 @@ export default function CoursePlayerPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-mono text-muted">
                       <span>Requests: {votes} / {(course as any).targetRequests}</span>
-                      <span>{progressPercent.toFixed(0)}%</span>
+                      <span>{(Number(progressPercent) || 0).toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5">
                       <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
@@ -670,8 +670,8 @@ export default function CoursePlayerPage() {
                   {/* Progress Bar */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-mono text-muted">
-                      <span>Escrow: ${pledgedAmount.toFixed(2)} / $50.00</span>
-                      <span>{pledgePercent.toFixed(0)}%</span>
+                      <span>Escrow: ${(Number(pledgedAmount) || 0).toFixed(2)} / $50.00</span>
+                      <span>{(Number(pledgePercent) || 0).toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5">
                       <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${pledgePercent}%` }} />
@@ -771,7 +771,7 @@ export default function CoursePlayerPage() {
         <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(0,212,200,0.05)]">
           <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-primary animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]' : 'bg-muted'}`} />
           <span className="text-xs font-mono text-primary flex items-center gap-1.5">
-            Streaming ILP <span className="opacity-50">|</span> ${totalStreamed.toFixed(4)}
+            Streaming ILP <span className="opacity-50">|</span> ${(Number(totalStreamed) || 0).toFixed(4)}
           </span>
         </div>
       </header>
@@ -1018,24 +1018,24 @@ export default function CoursePlayerPage() {
                      <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]" />
                      {t.liveEscrow}
                    </h3>
-                   <span className="font-mono text-sm text-foreground">{t.totalStreamed}: ${totalStreamed.toFixed(4)}</span>
+                   <span className="font-mono text-sm text-foreground">{t.totalStreamed}: ${(Number(totalStreamed) || 0).toFixed(4)}</span>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 80% Creator */}
                     <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 relative overflow-hidden group hover:border-primary/30 transition-colors">
                       <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.creatorShare}</p>
-                      <p className="font-mono text-lg text-foreground relative z-10">${creatorShare.toFixed(4)}</p>
+                      <p className="font-mono text-lg text-foreground relative z-10">${(Number(creatorShare) || 0).toFixed(4)}</p>
                     </div>
                     {/* 15% Platform */}
                     <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
                       <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.platformShare}</p>
-                      <p className="font-mono text-lg text-foreground">${platformShare.toFixed(4)}</p>
+                      <p className="font-mono text-lg text-foreground">${(Number(platformShare) || 0).toFixed(4)}</p>
                     </div>
                     {/* 5% NGO */}
                     <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
                       <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.bursaryShare}</p>
-                      <p className="font-mono text-lg text-foreground">${bursaryShare.toFixed(4)}</p>
+                      <p className="font-mono text-lg text-foreground">${(Number(bursaryShare) || 0).toFixed(4)}</p>
                     </div>
                  </div>
                </div>
@@ -1125,7 +1125,7 @@ export default function CoursePlayerPage() {
           <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden space-y-4">
             <h3 className="text-xl font-bold">Enable Payment Streaming</h3>
             <p className="text-muted text-sm leading-relaxed">
-              This lesson streams at ${(course?.pricePerMinute || 0).toFixed(2)}/min via Interledger Protocol. You'll only be charged for content you actually watch. Rewinding is always free.
+              This lesson streams at ${(Number(course?.pricePerMinute) || 0).toFixed(2)}/min via Interledger Protocol. You'll only be charged for content you actually watch. Rewinding is always free.
             </p>
             <div className="flex flex-col gap-2 pt-2">
               <button
@@ -1157,7 +1157,7 @@ export default function CoursePlayerPage() {
             <p className="text-muted text-sm leading-relaxed">
               You're skipping {Math.round(skippedSeconds)} seconds of content.
               <br />
-              Estimated charge: <span className="text-primary font-mono">${skippedAmount.toFixed(4)}</span>
+              Estimated charge: <span className="text-primary font-mono">${(Number(skippedAmount) || 0).toFixed(4)}</span>
               <br />
               Skipped content counts toward your session total.
             </p>
