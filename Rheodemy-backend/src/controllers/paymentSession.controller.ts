@@ -86,6 +86,20 @@ export class PaymentSessionController {
   }
 
   /**
+   * GET /sessions/instructor/history
+   * Returns recent completed sessions for the authenticated instructor
+   */
+  static async getInstructorSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const history = await PaymentSessionService.getInstructorSessions(req.user!.userId, limit);
+      sendSuccess(res, history, 'Instructor session history retrieved');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /sessions/:id
    * Returns current session status and running total.
    */

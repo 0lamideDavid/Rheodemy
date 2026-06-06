@@ -24,6 +24,7 @@ router.use(authenticate);
 
 router.post('/start',     (req, res, next) => PaymentSessionController.startSession(req, res, next));
 router.post('/:id/end',   (req, res, next) => PaymentSessionController.endSession(req, res, next));
+router.get('/instructor/history', authorize('INSTRUCTOR', 'ADMIN'), (req, res, next) => PaymentSessionController.getInstructorSessions(req, res, next));
 router.get('/:id',        (req, res, next) => PaymentSessionController.getSession(req, res, next));
 
 // ── Kill switch — INSTRUCTOR or ADMIN only ────────────────────────────────────

@@ -24,6 +24,16 @@ interface ActiveSession {
   earnings: number;
 }
 
+interface RecentActivity {
+  id: string;
+  studentName: string;
+  courseTitle: string;
+  lessonTitle: string;
+  durationSec: number;
+  creatorEarnings: number;
+  endedAt: string;
+}
+
 interface Feedback {
   id: string;
   rating: number;
@@ -125,6 +135,30 @@ export default function CreatorDashboard() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchActivity = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/instructor/history?limit=10`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.data) {
+          setRecentActivity(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch recent activity:", err);
+      }
+    };
+
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 30000); // 30s
+    return () => clearInterval(interval);
+  }, [token]);
 
   const totalLessons = courses.reduce((sum, c) => sum + (c.lessons?.length ?? c._count?.lessons ?? 0), 0);
 
@@ -320,6 +354,64 @@ export default function CreatorDashboard() {
                 </div>
               ))
             )}
+          </div>
+          
+          {/* Recent Activity Feed */}
+          <div className="pt-6">
+            <div className="border-b border-white/5 pb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Recent Activity</h2>
+            </div>
+            
+            <div className="space-y-4 pt-4">
+              {recentActivity.length === 0 ? (
+                <div className="py-8 text-center text-muted text-sm border border-white/5 rounded-xl bg-white/[0.01]">
+                  No activity yet — share your courses to get started
+                </div>
+              ) : (
+                recentActivity.map(activity => {
+                  // calculate relative time
+                  const diffMs = Date.now() - new Date(activity.endedAt).getTime();
+                  const diffMins = Math.floor(diffMs / 60000);
+                  const diffHours = Math.floor(diffMins / 60);
+                  const diffDays = Math.floor(diffHours / 24);
+                  
+                  let timeAgo = '';
+                  if (diffMins < 1) timeAgo = 'Just now';
+                  else if (diffMins < 60) timeAgo = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+                  else if (diffHours < 24) timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                  else timeAgo = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+                  const minsWatched = Math.floor(activity.durationSec / 60);
+                  const secsWatched = Math.floor(activity.durationSec % 60);
+                  const durationStr = `${minsWatched}m ${secsWatched}s`;
+
+                  return (
+                    <div key={activity.id} className="p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-colors relative group">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                            {activity.studentName === 'Anonymous Student' ? '👤' : activity.studentName[0]}
+                          </div>
+                          <p className="text-sm font-semibold text-foreground truncate max-w-[150px]">{activity.studentName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-muted whitespace-nowrap">{timeAgo}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="pl-8 space-y-1">
+                        <p className="text-xs text-foreground truncate">{activity.courseTitle} <span className="text-muted">· {activity.lessonTitle}</span></p>
+                        <p className="text-[11px] text-muted flex items-center gap-2">
+                          <span>Watched {durationStr}</span>
+                          <span>·</span>
+                          <span className="text-emerald-400 font-mono">Earned ${(Number(activity.creatorEarnings) || 0).toFixed(4)}</span>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
 

@@ -194,7 +194,38 @@ export class PaymentSessionService {
     return summary;
   }
 
-
+  /**
+   * Returns recent completed sessions for an instructor's courses
+   */
+  static async getInstructorSessions(instructorId: string, limit: number = 10) {
+    const sessions = await prisma.paymentSession.findMany({
+      where: {
+        course: { instructorId },
+        status: 'ENDED'
+      },
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        course: { select: { title: true, pricePerMinute: true } },
+        lesson: { select: { title: true } }
+      },
+      orderBy: { endedAt: 'desc' },
+      take: limit
+    });
+    
+    return sessions.map(s => {
+      const studentName = s.user ? `${s.user.firstName} ${s.user.lastName ? s.user.lastName[0] + '.' : ''}`.trim() : 'Anonymous Student';
+      return {
+        id: s.id,
+        studentName,
+        courseTitle: s.course.title,
+        lessonTitle: s.lesson?.title || 'General Lesson',
+        totalPaid: Number(s.totalPaid),
+        durationSec: (Number(s.totalPaid) / (Number(s.course.pricePerMinute) || 1)) * 60,
+        creatorEarnings: Number(s.totalPaid) * 0.8,
+        endedAt: s.endedAt
+      };
+    });
+  }
 
   /**
    * Returns current session status — used by polling or admin dashboard.
