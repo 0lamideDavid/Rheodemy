@@ -1007,39 +1007,41 @@ export default function CoursePlayerPage() {
             </div>
 
             {/* Live Escrow Visualization */}
-            <div className="p-6 rounded-xl border border-primary/20 bg-primary/[0.02] relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-6 opacity-5">
-                 <Activity className="w-32 h-32 text-primary" />
-               </div>
-               
-               <div className="relative z-10 space-y-6">
-                 <div className="flex items-center justify-between">
-                   <h3 className="text-xs uppercase tracking-widest font-semibold text-primary flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]" />
-                     {t.liveEscrow}
-                   </h3>
-                   <span className="font-mono text-sm text-foreground">{t.totalStreamed}: ${(Number(totalStreamed) || 0).toFixed(4)}</span>
+            {false && (
+              <div className="p-6 rounded-xl border border-primary/20 bg-primary/[0.02] relative overflow-hidden">
+                 <div className="absolute top-0 right-0 p-6 opacity-5">
+                   <Activity className="w-32 h-32 text-primary" />
                  </div>
+                 
+                 <div className="relative z-10 space-y-6">
+                   <div className="flex items-center justify-between">
+                     <h3 className="text-xs uppercase tracking-widest font-semibold text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(0,212,200,0.8)]" />
+                       {t.liveEscrow}
+                     </h3>
+                     <span className="font-mono text-sm text-foreground">{t.totalStreamed}: ${(Number(totalStreamed) || 0).toFixed(4)}</span>
+                   </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* 80% Creator */}
-                    <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 relative overflow-hidden group hover:border-primary/30 transition-colors">
-                      <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.creatorShare}</p>
-                      <p className="font-mono text-lg text-foreground relative z-10">${(Number(creatorShare) || 0).toFixed(4)}</p>
-                    </div>
-                    {/* 15% Platform */}
-                    <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
-                      <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.platformShare}</p>
-                      <p className="font-mono text-lg text-foreground">${(Number(platformShare) || 0).toFixed(4)}</p>
-                    </div>
-                    {/* 5% NGO */}
-                    <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
-                      <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.bursaryShare}</p>
-                      <p className="font-mono text-lg text-foreground">${(Number(bursaryShare) || 0).toFixed(4)}</p>
-                    </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* 80% Creator */}
+                      <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 relative overflow-hidden group hover:border-primary/30 transition-colors">
+                        <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.creatorShare}</p>
+                        <p className="font-mono text-lg text-foreground relative z-10">${(Number(creatorShare) || 0).toFixed(4)}</p>
+                      </div>
+                      {/* 15% Platform */}
+                      <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
+                        <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.platformShare}</p>
+                        <p className="font-mono text-lg text-foreground">${(Number(platformShare) || 0).toFixed(4)}</p>
+                      </div>
+                      {/* 5% NGO */}
+                      <div className="p-4 rounded-lg bg-[#0A0A0A] border border-white/5 hover:border-white/10 transition-colors">
+                        <p className="text-[10px] uppercase tracking-wider text-muted mb-1">{t.bursaryShare}</p>
+                        <p className="font-mono text-lg text-foreground">${(Number(bursaryShare) || 0).toFixed(4)}</p>
+                      </div>
+                   </div>
                  </div>
-               </div>
-            </div>
+              </div>
+            )}
 
           </div>
         </div>
