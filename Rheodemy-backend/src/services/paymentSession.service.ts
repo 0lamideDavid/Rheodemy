@@ -14,7 +14,6 @@
 import { prisma } from '../config/prisma';
 import { RafikiService } from './rafiki.service';
 import { RafikiConfig } from '../config/rafiki';
-import { FxService } from './fx.service';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { SocketService } from '../socket/index';
@@ -121,7 +120,7 @@ export class PaymentSessionService {
     }
 
     // 2. Attempt ILP payment for the total amount
-    let ilpResult;
+    let ilpResult: any;
     if (totalAmount > 0) {
       try {
         ilpResult = await RafikiService.executeTickPayment(totalAmount);
@@ -208,7 +207,7 @@ export class PaymentSessionService {
       currency:  RafikiConfig.assetCode,
       startedAt: session.startedAt,
       endedAt:   session.endedAt ?? null,
-      tickCount: tickCounters.get(sessionId) ?? 0,
+      tickCount: 0,
     };
   }
 
