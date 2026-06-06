@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Play, Star, Clock, Headphones, FileText, CheckCircle2, MessageSquare, Sparkles, ThumbsUp, Wallet, X, Hammer, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -65,6 +66,7 @@ interface Feedback {
 }
 
 export default function LearnerDashboard() {
+  const router = useRouter();
   const { t } = useLanguage();
   const [filter, setFilter] = useState('all');
   const [courses, setCourses] = useState<Course[]>([]);
@@ -129,11 +131,21 @@ export default function LearnerDashboard() {
     setTimeout(() => setFeedbackSuccess(false), 3000);
   };
 
+  const getCourseFormatRank = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('handbook')) return 2; // ebook
+    if (t.includes('audio') || t.includes('podcast')) return 3; // audio
+    return 1; // video
+  };
+
   const filteredCourses = courses.filter(course => {
+    // Hide the manually created dummy course
+    if (course.title === 'Course' || course.description === 'No description provided.') return false;
+    
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
-  });
+  }).sort((a, b) => getCourseFormatRank(a.title) - getCourseFormatRank(b.title));
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-12">
@@ -214,9 +226,11 @@ export default function LearnerDashboard() {
           </div>
         ) : (
           <>
-            {filteredCourses.map((course) => (
-              <Link 
-                href={`/dashboard/learner/course/${course.id}`} 
+            {filteredCourses.map((course) => {
+              const isAudioOrEbook = course.title.toLowerCase().includes('handbook') || course.title.toLowerCase().includes('audio') || course.title.toLowerCase().includes('podcast');
+              return (
+              <div 
+                onClick={() => isAudioOrEbook ? setShowComingSoon(true) : router.push(`/dashboard/learner/course/${course.id}`)} 
                 key={course.id} 
                 className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
               >
@@ -226,8 +240,8 @@ export default function LearnerDashboard() {
                   {/* Real Course Format Badge */}
                   <div className="absolute top-4 left-4 z-20">
                     <div className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 flex items-center gap-1.5 uppercase">
-                      {course.title.toLowerCase().includes('handbook') ? <FileText className="w-3 h-3" /> : course.title.toLowerCase().includes('audio') ? <Headphones className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                      {course.title.toLowerCase().includes('handbook') ? 'ebook' : course.title.toLowerCase().includes('audio') ? 'audio' : 'video'}
+                      {course.title.toLowerCase().includes('handbook') ? <FileText className="w-3 h-3" /> : (course.title.toLowerCase().includes('audio') || course.title.toLowerCase().includes('podcast')) ? <Headphones className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                      {course.title.toLowerCase().includes('handbook') ? 'ebook' : (course.title.toLowerCase().includes('audio') || course.title.toLowerCase().includes('podcast')) ? 'audio' : 'video'}
                     </div>
                   </div>
 
@@ -250,13 +264,17 @@ export default function LearnerDashboard() {
                     <div>{course.instructor.firstName} {course.instructor.lastName}</div>
                   </div>
                 </div>
-              </Link>
-            ))}
+              </div>
+            )})}
 
             {PRE_RELEASE_COURSES.filter(course => 
               (filter === 'all' || filter === course.type) && 
               (course.title.toLowerCase().includes(searchQuery.toLowerCase()) || course.description.toLowerCase().includes(searchQuery.toLowerCase()))
-            ).map((course) => (
+            ).sort((a, b) => {
+              const rankA = a.type === 'video' ? 1 : a.type === 'ebook' ? 2 : 3;
+              const rankB = b.type === 'video' ? 1 : b.type === 'ebook' ? 2 : 3;
+              return rankA - rankB;
+            }).map((course) => (
               <div 
                 key={course.id} 
                 onClick={() => setSelectedPreRelease(course)}

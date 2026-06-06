@@ -161,13 +161,13 @@ async function ensureDefaultUsers() {
       // Course 2
       const c2 = await prisma.course.create({
         data: {
-          title: "The 10x Designer Handbook",
+          title: "Advanced UI/UX Design Masterclass",
           description: "A definitive guide to systems thinking, layout architecture, and rapid prototyping.",
           pricePerMinute: 0.05,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
@@ -180,13 +180,13 @@ async function ensureDefaultUsers() {
       // Course 3
       const c3 = await prisma.course.create({
         data: {
-          title: "Y Combinator: Startup School (Audio)",
-          description: "Listen to the world's best startup advice while commuting or running.",
+          title: "Y Combinator: Startup School",
+          description: "Watch the world's best startup advice from successful founders.",
           pricePerMinute: 0.02,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600&auto=format&fit=crop"
+          thumbnailUrl: "https://images.unsplash.com/photo-1559136555-9ce1159658ec?q=80&w=600&auto=format&fit=crop"
         }
       });
       await prisma.lesson.createMany({
@@ -196,7 +196,43 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      logger.info("👤 Auto-created 3 default courses for instructor with featured images");
+      // Course 4 - EBOOK
+      const c4 = await prisma.course.create({
+        data: {
+          title: "The Indie Hacker Handbook",
+          description: "A comprehensive written guide to building profitable internet businesses from scratch.",
+          pricePerMinute: 0.01,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop"
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c4.id, title: "Foreword & Introduction", description: "Getting started.", contentUrl: "Welcome to the handbook.\\n\\nThis is a test ebook.", durationSec: 0, order: 1 }
+        ]
+      });
+
+      // Course 5 - AUDIO
+      const c5 = await prisma.course.create({
+        data: {
+          title: "Tech Leaders Podcast (Audio)",
+          description: "Weekly audio interviews with top engineering leaders.",
+          pricePerMinute: 0.03,
+          currency: "USD",
+          status: "PUBLISHED",
+          instructorId: instructor.id,
+          thumbnailUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600&auto=format&fit=crop"
+        }
+      });
+      await prisma.lesson.createMany({
+        data: [
+          { courseId: c5.id, title: "Interview with CEO of Vercel", description: "Audio podcast.", contentUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", durationSec: 1200, order: 1 }
+        ]
+      });
+
+      logger.info("👤 Auto-created 5 default courses for instructor with featured images");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
