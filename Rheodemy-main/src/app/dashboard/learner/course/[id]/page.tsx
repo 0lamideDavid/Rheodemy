@@ -750,7 +750,7 @@ export default function CoursePlayerPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className={`w-1.5 bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-bounce' : 'h-1'}`} style={{ height: isPlaying ? `${Math.random() * 24 + 8}px` : '4px', animationDelay: `${i * 0.1}s` }} />
+                    <div key={i} className={`w-1.5 bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-bounce' : 'h-1'}`} style={{ height: isPlaying ? `${(i % 3) * 6 + 10}px` : '4px', animationDelay: `${i * 0.1}s` }} />
                   ))}
                 </div>
               </div>

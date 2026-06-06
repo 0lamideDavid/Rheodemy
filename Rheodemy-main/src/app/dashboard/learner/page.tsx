@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Play, Star, Clock, Headphones, FileText, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react';
+import { Search, Play, Star, Clock, Headphones, FileText, CheckCircle2, MessageSquare, Sparkles, ThumbsUp, Wallet, X, Hammer, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface Course {
@@ -27,10 +27,15 @@ const PRE_RELEASE_COURSES = [
     pricePerMinute: 0.15,
     cap: 20.00,
     thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop',
-    instructor: { firstName: 'Dr. Evelyn', lastName: 'Foster' },
+    instructor: { firstName: 'Dr. Evelyn', lastName: 'Foster (Guest)' },
     rating: 4.8,
     duration: '10h 15m',
-    type: 'video',
+    type: 'audio',
+    expected: 'September 2026',
+    requests: 120,
+    requestsGoal: 200,
+    escrow: 300.00,
+    escrowGoal: 1000.00
   },
   {
     id: 'mock-2',
@@ -39,10 +44,15 @@ const PRE_RELEASE_COURSES = [
     pricePerMinute: 0.08,
     cap: 10.00,
     thumbnailUrl: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000&auto=format&fit=crop',
-    instructor: { firstName: 'Peter', lastName: 'Thiel' },
+    instructor: { firstName: 'Peter', lastName: 'Thiel (Guest)' },
     rating: 4.7,
     duration: '~5h read',
     type: 'ebook',
+    expected: 'August 2026',
+    requests: 18,
+    requestsGoal: 50,
+    escrow: 12.50,
+    escrowGoal: 50.00
   }
 ];
 
@@ -60,6 +70,8 @@ export default function LearnerDashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPreRelease, setSelectedPreRelease] = useState<any>(null);
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -196,23 +208,67 @@ export default function LearnerDashboard() {
               </div>
             </div>
           ))
-        ) : filteredCourses.length === 0 ? (
+        ) : filteredCourses.length === 0 && courses.length === 0 ? (
           <div className="col-span-full py-20 text-center text-muted">
-            <p>{courses.length === 0 ? 'No courses available yet. Check back soon!' : t.noContent}</p>
+            <p>No courses available yet. Check back soon!</p>
           </div>
+        ) : (
           <>
+            {filteredCourses.map((course) => (
+              <Link 
+                href={`/dashboard/learner/course/${course.id}`} 
+                key={course.id} 
+                className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
+              >
+                <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 group-hover:border-primary/20 transition-colors">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
+                  
+                  {/* Real Course Format Badge */}
+                  <div className="absolute top-4 left-4 z-20">
+                    <div className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 flex items-center gap-1.5 uppercase">
+                      {course.title.toLowerCase().includes('handbook') ? <FileText className="w-3 h-3" /> : course.title.toLowerCase().includes('audio') ? <Headphones className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                      {course.title.toLowerCase().includes('handbook') ? 'ebook' : course.title.toLowerCase().includes('audio') ? 'audio' : 'video'}
+                    </div>
+                  </div>
+
+                  <img src={course.thumbnailUrl || UNSPLASH_FALLBACK} alt={course.title} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500 group-hover:scale-105" />
+                </div>
+
+                <div className="p-6 space-y-4 flex-1 flex flex-col relative z-20">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
+                    <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
+                      ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>
+                  <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary animate-pulse" /> 5.0</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(course.lessons?.length ?? course._count?.lessons ?? 0)} lesson{(course.lessons?.length ?? course._count?.lessons ?? 0) !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div>{course.instructor.firstName} {course.instructor.lastName}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+
             {PRE_RELEASE_COURSES.filter(course => 
               (filter === 'all' || filter === course.type) && 
               (course.title.toLowerCase().includes(searchQuery.toLowerCase()) || course.description.toLowerCase().includes(searchQuery.toLowerCase()))
             ).map((course) => (
-              <div key={course.id} className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group border border-white/5 flex flex-col relative opacity-60 cursor-not-allowed">
+              <div 
+                key={course.id} 
+                onClick={() => setSelectedPreRelease(course)}
+                className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group border border-white/5 flex flex-col relative opacity-60 hover:opacity-100 cursor-pointer"
+              >
                 <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 transition-colors">
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
                   
                   {/* Badges */}
                   <div className="absolute top-4 left-4 z-20">
                     <div className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 flex items-center gap-1.5 uppercase">
-                      {course.type === 'video' ? <Play className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {course.type}
+                      {course.type === 'video' ? <Play className="w-3 h-3" /> : course.type === 'audio' ? <Headphones className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {course.type}
                     </div>
                   </div>
                   <div className="absolute top-4 right-4 z-20">
@@ -245,37 +301,8 @@ export default function LearnerDashboard() {
                 </div>
               </div>
             ))}
-            
-            {filteredCourses.map((course) => (
-              <Link 
-                href={`/dashboard/learner/course/${course.id}`} 
-                key={course.id} 
-                className="bg-[#0A0A0A] rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group cursor-pointer border border-white/5 flex flex-col relative"
-              >
-                <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center border-b border-white/5 group-hover:border-primary/20 transition-colors">
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent z-10" />
-                  <img src={course.thumbnailUrl || UNSPLASH_FALLBACK} alt={course.title} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-500 group-hover:scale-105" />
-                </div>
-
-                <div className="p-6 space-y-4 flex-1 flex flex-col relative z-20">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-base leading-tight">{course.title}</h3>
-                    <span className="bg-primary/10 text-primary text-[10px] font-mono px-2 py-1 rounded border border-primary/20 whitespace-nowrap">
-                      ${Number(course.pricePerMinute) >= 0.01 ? Number(course.pricePerMinute).toFixed(2) : Number(course.pricePerMinute).toFixed(4)}/min
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted line-clamp-2 flex-1">{course.description}</p>
-                  <div className="flex items-center justify-between text-xs text-muted font-medium pt-4 border-t border-white/5">
-                    <div className="flex items-center gap-3">
-                      <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary animate-pulse" /> 5.0</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(course.lessons?.length ?? course._count?.lessons ?? 0)} lesson{(course.lessons?.length ?? course._count?.lessons ?? 0) !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div>{course.instructor.firstName} {course.instructor.lastName}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
           </>
+        )}
       </div>
 
       {/* Local Interactive Feedback Section */}
@@ -395,6 +422,126 @@ export default function LearnerDashboard() {
         </div>
       </section>
 
+      {/* Modal */}
+      {selectedPreRelease && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#111111] border border-white/10 rounded-3xl w-full max-w-4xl p-10 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+            <button 
+              onClick={() => setSelectedPreRelease(null)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <X className="w-6 h-6 text-muted hover:text-white transition-colors" />
+            </button>
+            
+            <div className="text-center space-y-4 max-w-2xl mx-auto pt-4">
+              <div className="text-primary text-xs font-bold tracking-widest uppercase">Pre-Release Course</div>
+              <h2 className="text-4xl font-extrabold tracking-tight">{selectedPreRelease.title}</h2>
+              <p className="text-muted text-lg leading-relaxed">{selectedPreRelease.description}</p>
+              
+              <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted pt-4">
+                <span>By <span className="font-semibold text-white">{selectedPreRelease.instructor.firstName} {selectedPreRelease.instructor.lastName}</span></span>
+                <span className="w-1 h-1 rounded-full bg-white/20"></span>
+                <span>Expected: <span className="font-semibold text-white">{selectedPreRelease.expected}</span></span>
+                <span className="w-1 h-1 rounded-full bg-white/20"></span>
+                <span>Format: <span className="font-semibold text-white uppercase">{selectedPreRelease.type}</span></span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+              {/* Card 1: Requests */}
+              <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-white/5 flex flex-col justify-between space-y-8">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold tracking-widest uppercase flex items-center gap-2">
+                    <ThumbsUp className="w-4 h-4 text-primary" />
+                    Awaiting Release & Funding
+                  </h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    This course has not been released yet. The creator will publish it once it receives enough requests or pre-funding pledges.
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between text-sm font-mono text-muted">
+                    <span>Requests: {selectedPreRelease.requests} / {selectedPreRelease.requestsGoal}</span>
+                    <span>{Math.round((selectedPreRelease.requests / selectedPreRelease.requestsGoal) * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-black rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full transition-all duration-1000"
+                      style={{ width: `${(selectedPreRelease.requests / selectedPreRelease.requestsGoal) * 100}%` }}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setShowComingSoon(true)}
+                    className="w-full py-4 rounded-xl bg-primary text-black font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4"
+                  >
+                    <Sparkles className="w-4 h-4" /> Request this Course
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Escrow */}
+              <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-white/5 flex flex-col justify-between space-y-8">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold tracking-widest uppercase flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-purple-500" />
+                    Escrow Pledge Meter
+                  </h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    Pledge microcent transactions from your active wallet. Funds reside in an escrow contract and return to you if publication fails.
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between text-sm font-mono text-muted">
+                    <span>Escrow: ${selectedPreRelease.escrow.toFixed(2)} / ${selectedPreRelease.escrowGoal.toFixed(2)}</span>
+                    <span>{Math.round((selectedPreRelease.escrow / selectedPreRelease.escrowGoal) * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-black rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                      style={{ width: `${(selectedPreRelease.escrow / selectedPreRelease.escrowGoal) * 100}%` }}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setShowComingSoon(true)}
+                    className="w-full py-4 rounded-xl bg-[#2A2A2A] text-white font-bold text-sm hover:bg-[#333333] transition-colors border border-white/5 flex items-center justify-center gap-2 mt-4"
+                  >
+                    <div className="flex items-center justify-center w-5 h-5 rounded-full border border-purple-500 text-purple-500 text-[10px] font-bold">i</div>
+                    Pledge Micro-monetization
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coming Soon Modal */}
+      {showComingSoon && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#111111] border border-white/10 rounded-3xl w-full max-w-md p-10 relative shadow-2xl flex flex-col items-center text-center space-y-6">
+            
+            <div className="w-20 h-20 rounded-full bg-black border border-primary/30 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,200,0.15)]">
+              <Hammer className="w-8 h-8 text-primary" />
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold tracking-tight">Coming Soon</h2>
+              <p className="text-muted text-sm leading-relaxed max-w-[280px] mx-auto">
+                You've caught us building! This feature is actively under development and will be released in the upcoming Phase 2 update.
+              </p>
+            </div>
+
+            <button 
+              onClick={() => setShowComingSoon(false)}
+              className="w-full py-3.5 rounded-xl bg-white text-black font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4"
+            >
+              <ArrowLeft className="w-4 h-4" /> Go Back
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
