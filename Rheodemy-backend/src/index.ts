@@ -137,8 +137,18 @@ async function ensureDefaultUsers() {
       await prisma.lesson.deleteMany({ where: { course: { instructorId: instructor.id } } });
       await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
 
-      const dummyVideoUrl = "jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs";
-      
+      // Apply update to any lingering old lessons (as requested)
+      await prisma.lesson.updateMany({
+        where: { contentUrl: 'DS00Spx1CV902MCtPj5WknGlR102V5HFkDe680T1' },
+        data: { contentUrl: 'VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY' }
+      });
+      // Also update the previous jy02... URL just in case
+      await prisma.lesson.updateMany({
+        where: { contentUrl: 'jy02Y501NLjgcgnNQbhiDQrbTtNZqIpdSYpT02KpPLzHzs' },
+        data: { contentUrl: 'VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY' }
+      });
+
+      const dummyVideoUrl = "VCZzOAAVqd4f5n5kshNtpfHXyhxgB6aUVBJxPiJvTgY";
       // Course 1
       const c1 = await prisma.course.create({
         data: {
