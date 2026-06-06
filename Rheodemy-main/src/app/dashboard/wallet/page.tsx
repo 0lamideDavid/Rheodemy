@@ -179,7 +179,7 @@ export default function WalletPage() {
               <label className="text-xs font-semibold text-muted uppercase tracking-wider">Your Payment Pointer</label>
               <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-white/5">
                 <span className="font-mono text-sm text-primary truncate mr-4">
-                  {paymentPointer}
+                  {paymentPointer.includes('/') ? `$rheodemy.com/${paymentPointer.split('/').pop()}` : paymentPointer}
                 </span>
                 <button 
                   onClick={handleCopy}
