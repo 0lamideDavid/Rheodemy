@@ -41,7 +41,7 @@ export class AuthService {
         role: role as Role,
         wallet: {
           create: {
-            walletAddress: role === "INSTRUCTOR" ? (process.env.TEACHER_WALLET_ADDRESS || "https://ilp.interledger-test.dev/rheodemy") : (process.env.STUDENT_WALLET_ADDRESS || "https://ilp.interledger-test.dev/olamide"),
+            walletAddress: `https://ilp.interledger-test.dev/${email.replace(/[^a-zA-Z0-9]/g, '')}`,
             provider: "rafiki",
             currency: "USD",
           }
