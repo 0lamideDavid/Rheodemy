@@ -139,8 +139,9 @@ export default function LearnerDashboard() {
   };
 
   const filteredCourses = courses.filter(course => {
-    // Hide the manually created dummy course
+    // Hide the manually created dummy course and the Y Combinator course
     if (course.title === 'Course' || course.description === 'No description provided.') return false;
+    if (course.title.includes('Y Combinator')) return false;
     
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());

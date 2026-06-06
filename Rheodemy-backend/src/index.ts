@@ -177,25 +177,6 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      // Course 3
-      const c3 = await prisma.course.create({
-        data: {
-          title: "Y Combinator: Startup School",
-          description: "Watch the world's best startup advice from successful founders.",
-          pricePerMinute: 0.02,
-          currency: "USD",
-          status: "PUBLISHED",
-          instructorId: instructor.id,
-          thumbnailUrl: "https://images.unsplash.com/photo-1559136555-9ce1159658ec?q=80&w=600&auto=format&fit=crop"
-        }
-      });
-      await prisma.lesson.createMany({
-        data: [
-          { courseId: c3.id, title: "Episode 1: How to get ideas", description: "Paul Graham on ideas.", contentUrl: dummyVideoUrl, durationSec: 300, order: 1 },
-          { courseId: c3.id, title: "Episode 2: MVP", description: "Building a minimum viable product.", contentUrl: dummyVideoUrl, durationSec: 400, order: 2 },
-        ]
-      });
-
       // Course 4 - EBOOK
       const c4 = await prisma.course.create({
         data: {
@@ -232,7 +213,7 @@ async function ensureDefaultUsers() {
         ]
       });
 
-      logger.info("👤 Auto-created 5 default courses for instructor with featured images");
+      logger.info("👤 Auto-created 4 default courses for instructor with featured images");
     }
   } catch (error) {
     logger.error("❌ Failed to ensure default users", { error: String(error) });
