@@ -154,9 +154,9 @@ async function ensureDefaultUsers() {
       // Course 1
       const c1 = await prisma.course.create({
         data: {
-          title: "Mastering TypeScript",
+          title: "Web Development for Beginners",
           description: "Learn advanced patterns, strict mode, and how to build robust enterprise applications.",
-          pricePerMinute: 1.00, // $1 per minute/page
+          pricePerMinute: 4.00,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
@@ -174,9 +174,9 @@ async function ensureDefaultUsers() {
       // Course 2
       const c2 = await prisma.course.create({
         data: {
-          title: "Advanced UI/UX Design Masterclass",
+          title: "Mastering React and Next.js",
           description: "A definitive guide to systems thinking, layout architecture, and rapid prototyping.",
-          pricePerMinute: 0.05,
+          pricePerMinute: 2.50,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
@@ -213,7 +213,7 @@ async function ensureDefaultUsers() {
         data: {
           title: "AI and Machine Learning Foundations",
           description: "Discover the fundamentals of AI through our comprehensive guide.",
-          pricePerMinute: 0.15,
+          pricePerMinute: 2.00,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
@@ -235,7 +235,7 @@ async function ensureDefaultUsers() {
         data: {
           title: "The African Tech Podcast — Learning Series",
           description: "Conversations about technology, startups, and innovation across Africa. Listen and learn from founders, engineers, and investors building the future.",
-          pricePerMinute: 0.50,
+          pricePerMinute: 1.30,
           currency: "USD",
           status: "PUBLISHED",
           instructorId: instructor.id,
