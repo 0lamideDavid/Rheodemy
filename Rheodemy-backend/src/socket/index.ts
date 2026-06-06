@@ -74,16 +74,20 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
       role: user?.role,
     });
 
-    // Client can join a session room by emitting 'join:session'
       socket.on('join:session', (sessionId: string) => {
-      socket.join(`session:${sessionId}`);
-      console.log(`[Socket.io] 🟢 Client joined session room -> session:${sessionId} | Socket: ${socket.id}`);
-      logger.info('[Socket.io] Client joined session room', {
-        socketId: socket.id,
-        sessionId,
+        socket.join(`session:${sessionId}`);
+        console.log(`[Socket.io] 🟢 Client joined session room -> session:${sessionId} | Socket: ${socket.id}`);
+        logger.info('[Socket.io] Client joined session room', {
+          socketId: socket.id,
+          sessionId,
+        });
+        socket.emit('joined', { sessionId });
       });
-      socket.emit('joined', { sessionId });
-    });
+
+      if (user?.role === 'INSTRUCTOR') {
+        socket.join(`creator:${user.userId}`);
+        console.log(`[Socket.io] 🟢 Instructor joined creator room -> creator:${user.userId}`);
+      }
 
     socket.on('disconnect', (reason) => {
       logger.info('[Socket.io] Client disconnected', {
@@ -125,22 +129,32 @@ export const SocketService = {
   /**
    * Emitted when a new payment session starts.
    */
-  emitSessionStarted(sessionId: string, userId: string, courseId: string): void {
+  emitSessionStarted(sessionId: string, userId: string, courseId: string, instructorId: string, courseTitle: string, studentName: string): void {
     if (!_io) return;
-    _io.to(`session:${sessionId}`).emit('session:started', {
+    const payload = {
       sessionId,
       userId,
       courseId,
+      courseTitle,
+      studentName,
       timestamp: new Date().toISOString(),
-    });
+    };
+    _io.to(`session:${sessionId}`).emit('session:started', payload);
+    if (instructorId) {
+      _io.to(`creator:${instructorId}`).emit('session:started', payload);
+    }
   },
 
   /**
    * Emitted when a session ends gracefully.
    */
-  emitSessionEnded(sessionId: string, summary: object): void {
+  emitSessionEnded(sessionId: string, summary: object, instructorId?: string): void {
     if (!_io) return;
-    _io.to(`session:${sessionId}`).emit('session:ended', { sessionId, ...summary });
+    const payload = { sessionId, ...summary };
+    _io.to(`session:${sessionId}`).emit('session:ended', payload);
+    if (instructorId) {
+      _io.to(`creator:${instructorId}`).emit('session:ended', payload);
+    }
     logger.debug('[Socket.io] session:ended emitted', { sessionId });
   },
 

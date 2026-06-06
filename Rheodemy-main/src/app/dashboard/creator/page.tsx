@@ -16,6 +16,14 @@ interface InstructorCourse {
   totalMinutes?: number;
 }
 
+interface ActiveSession {
+  sessionId: string;
+  studentName: string;
+  courseTitle: string;
+  pricePerMinute: number;
+  earnings: number;
+}
+
 interface Feedback {
   id: string;
   rating: number;
@@ -49,8 +57,75 @@ export default function CreatorDashboard() {
     fetchCourses();
   }, [token]);
 
-  // Compute stats from courses
-  const totalEarnings = courses.reduce((sum, c) => sum + (c.totalEarnings ?? 0), 0);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/wallet/balance`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setWalletBalance(data.data?.balance || 0);
+      } catch (err) {
+        console.error("Failed to fetch wallet balance:", err);
+      }
+    };
+    fetchBalance();
+  }, [token]);
+
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let socket: any;
+    import('socket.io-client').then(({ io }) => {
+      socket = io(process.env.NEXT_PUBLIC_API_URL!, {
+        auth: { token },
+      });
+
+      socket.on('session:started', (payload: any) => {
+        // Find course to get pricePerMinute
+        setCourses(currentCourses => {
+          const course = currentCourses.find(c => c.id === payload.courseId);
+          const price = course?.pricePerMinute || 0;
+          
+          setActiveSessions(prev => [
+            ...prev.filter(s => s.sessionId !== payload.sessionId),
+            {
+              sessionId: payload.sessionId,
+              studentName: payload.studentName || 'Anonymous Student',
+              courseTitle: payload.courseTitle || 'Unknown Course',
+              pricePerMinute: price,
+              earnings: 0
+            }
+          ]);
+          return currentCourses;
+        });
+      });
+
+      socket.on('session:ended', (payload: any) => {
+        setActiveSessions(prev => prev.filter(s => s.sessionId !== payload.sessionId));
+      });
+    });
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [token]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSessions(prev => prev.map(session => ({
+        ...session,
+        earnings: session.earnings + (session.pricePerMinute / 60)
+      })));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const totalLessons = courses.reduce((sum, c) => sum + (c.lessons?.length ?? c._count?.lessons ?? 0), 0);
 
   const [rating, setRating] = useState(0);
@@ -127,12 +202,11 @@ export default function CreatorDashboard() {
               <div className="w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_8px_rgba(0,212,200,0.8)] animate-pulse" />
               <span className="text-xs uppercase tracking-wider font-semibold">{t.totalRevenue}</span>
             </div>
-            <div>
               <p className="text-5xl font-mono font-light tracking-tight text-foreground">
-                {isCoursesLoading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : `$${totalEarnings.toFixed(2)}`}
+                {walletBalance === null ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : `$${walletBalance.toFixed(2)}`}
               </p>
               <p className="text-xs text-muted mt-3 flex items-center gap-2">
-                <span className="text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded">{courses.length} course{courses.length !== 1 ? 's' : ''}</span> published
+                <span className="text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded">80%</span> net creator share
               </p>
             </div>
           </div>
@@ -217,59 +291,34 @@ export default function CreatorDashboard() {
 
         {/* Live Activity Feed */}
         <div className="space-y-6 pt-2">
-          <div className="border-b border-white/5 pb-4">
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{t.activityFeed}</h2>
+          <div className="border-b border-white/5 pb-4 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Live Now</h2>
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
           </div>
           
-          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-[1px] before:bg-gradient-to-b before:from-primary/50 before:via-white/10 before:to-transparent pt-2">
-            
-            {/* Feed Item 1 */}
-            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-primary/30 bg-[#0A0A0A] text-primary absolute left-0 md:left-1/2 -translate-x-1/2 shadow-[0_0_10px_rgba(0,212,200,0.3)]">
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+          <div className="space-y-4 pt-2">
+            {activeSessions.length === 0 ? (
+              <div className="py-8 text-center text-muted text-sm border border-white/5 rounded-xl bg-white/[0.01]">
+                No students streaming right now
               </div>
-              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 text-sm">
-                <p className="text-muted leading-relaxed">
-                  <span className="font-medium text-foreground">Alex</span> finished <span className="font-medium text-foreground">Intro to Python</span>
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">+$4.50</span>
-                  <span className="text-xs text-muted/50">2m ago</span>
+            ) : (
+              activeSessions.map(session => (
+                <div key={session.sessionId} className="p-4 rounded-xl border border-primary/20 bg-primary/[0.02] relative overflow-hidden group">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{session.studentName}</p>
+                      <p className="text-xs text-muted">is watching <span className="text-primary">{session.courseTitle}</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-mono text-emerald-400">
+                        +${(session.earnings * 0.8).toFixed(4)}
+                      </p>
+                      <p className="text-[10px] text-muted">creator share</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Feed Item 2 */}
-            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-white/10 bg-[#0A0A0A] absolute left-0 md:left-1/2 -translate-x-1/2">
-                <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
-              </div>
-              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 md:text-right text-sm">
-                <p className="text-muted leading-relaxed">
-                  <span className="font-medium text-foreground">Sarah</span> started watching <span className="font-medium text-foreground">Advanced React</span>
-                </p>
-                <div className="flex items-center justify-start md:justify-end gap-2 mt-1">
-                  <span className="text-xs text-muted/50">15m ago</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Feed Item 3 */}
-            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-white/10 bg-[#0A0A0A] absolute left-0 md:left-1/2 -translate-x-1/2">
-                <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
-              </div>
-              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 text-sm">
-                <p className="text-muted leading-relaxed">
-                  <span className="font-medium text-foreground">Marcus</span> purchased <span className="font-medium text-foreground">Intro to Python</span>
-                </p>
-                <div className="flex items-center justify-start gap-2 mt-1">
-                  <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">+$0.10/m</span>
-                  <span className="text-xs text-muted/50">1h ago</span>
-                </div>
-              </div>
-            </div>
-
+              ))
+            )}
           </div>
         </div>
 

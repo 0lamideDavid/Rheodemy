@@ -93,10 +93,13 @@ export class PaymentSessionService {
       },
     });
 
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const studentName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Anonymous Student';
+
     activeSessions.add(session.id);
 
     // Notify connected clients
-    SocketService.emitSessionStarted(session.id, userId, courseId);
+    SocketService.emitSessionStarted(session.id, userId, courseId, course.instructorId, course.title, studentName);
 
     console.log(
       `[PaymentSession] ▶ Session ${session.id} started.`
@@ -112,7 +115,8 @@ export class PaymentSessionService {
     activeSessions.delete(sessionId);
 
     const session = await prisma.paymentSession.findUnique({
-      where: { id: sessionId }
+      where: { id: sessionId },
+      include: { course: true, user: true }
     });
 
     if (!session || session.status !== 'ACTIVE') {
@@ -185,7 +189,7 @@ export class PaymentSessionService {
       tickCount: totalAmount > 0 ? 1 : 0,
     };
 
-    SocketService.emitSessionEnded(sessionId, summary);
+    SocketService.emitSessionEnded(sessionId, summary, session.course.instructorId);
 
     return summary;
   }

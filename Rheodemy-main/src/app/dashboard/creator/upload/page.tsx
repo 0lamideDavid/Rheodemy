@@ -25,17 +25,15 @@ export default function UploadCourse() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   
-  // Form State - stored as strings so trailing decimals/zeroes aren't stripped while typing
-  const [rate, setRate] = useState("0.12");
-  const [cap, setCap] = useState("20.00");
+  const [coursePrice, setCoursePrice] = useState("20.00");
+  const [showModal, setShowModal] = useState(false);
 
   const handleFormatSelect = (formatId: string) => {
     setSelectedFormat(formatId);
     setFileName(""); // reset file when format changes
     const format = formats.find(f => f.id === formatId);
     if (format) {
-      setRate(format.recommendedRate);
-      if (format.id === 'quiz') setCap("0");
+      if (format.id === 'quiz') setCoursePrice("0");
     }
   };
 
@@ -50,41 +48,10 @@ export default function UploadCourse() {
   };
 
   const handlePublish = async () => {
-    if (!title) {
-      alert("Please provide a title");
-      return;
-    }
-
-    setIsPublishing(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/courses`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title,
-          description: description || "No description provided.",
-          pricePerMinute: parseFloat(rate || "0"),
-          currency: "USD",
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to create course");
-      }
-
-      router.push('/dashboard/creator');
-    } catch (err) {
-      console.error(err);
-      alert("Publish failed");
-      setIsPublishing(false);
-    }
+    setShowModal(true);
   };
 
   const activeFormat = formats.find(f => f.id === selectedFormat);
-  const parsedCap = parseFloat(cap || "0");
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
@@ -212,58 +179,52 @@ export default function UploadCourse() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-muted mb-2">Streaming Rate ($ / min)</label>
+              <label className="block text-sm font-medium text-muted mb-2">Course Price ($)</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">$</span>
                 <input 
                   type="text" 
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
+                  value={coursePrice}
+                  onChange={(e) => setCoursePrice(e.target.value)}
                   disabled={selectedFormat === 'quiz'}
                   className="w-full bg-background border border-white/10 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:border-primary transition-colors disabled:opacity-50" 
                 />
               </div>
-              <p className="text-xs text-muted mt-2">
-                Estimated cost for 10 min lesson: ${(parseFloat(rate || "0") * 10).toFixed(2)}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-muted mb-2">Maximum Price Cap ($)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">$</span>
-                <input 
-                  type="text" 
-                  value={cap}
-                  onChange={(e) => setCap(e.target.value)}
-                  disabled={selectedFormat === 'quiz'}
-                  className="w-full bg-background border border-white/10 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:border-primary transition-colors disabled:opacity-50" 
-                />
-              </div>
-              <p className="text-xs text-muted mt-2 flex gap-1.5 items-start">
-                <Target className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <span>Once a learner spends ${isNaN(parsedCap) ? "0.00" : parsedCap.toFixed(2)}, streaming stops and they permanently unlock this content.</span>
+              <p className="text-xs text-muted mt-3 leading-relaxed">
+                Your streaming rate is automatically calculated based on your course price. You earn 80% of every stream — students only pay for what they watch.
               </p>
             </div>
           </div>
 
           <button 
             onClick={handlePublish}
-            disabled={isPublishing}
-            className="w-full bg-foreground text-background px-8 py-4 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-xl shadow-white/5 disabled:opacity-70"
+            className="w-full bg-foreground text-background px-8 py-4 rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-xl shadow-white/5"
           >
-            {isPublishing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Publishing to Rheodemy...
-              </>
-            ) : (
-              'Publish Content'
-            )}
+            Publish Content
           </button>
 
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden text-center space-y-4">
+            <div className="w-12 h-12 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-2">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold">Coming Soon</h3>
+            <p className="text-muted text-sm leading-relaxed">
+              Full course publishing is launching soon. Your content pipeline is being reviewed.
+            </p>
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 rounded-xl transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

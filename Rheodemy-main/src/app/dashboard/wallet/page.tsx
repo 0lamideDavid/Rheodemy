@@ -145,9 +145,6 @@ export default function WalletPage() {
               <Link href="/coming-soon" className="w-full sm:w-auto bg-foreground text-background px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
                 <Upload className="w-5 h-5" /> Deposit Funds
               </Link>
-              <Link href="/coming-soon" className="w-full sm:w-auto border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] text-foreground px-6 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors">
-                <RefreshCw className="w-5 h-5" /> Swap ILP / USD
-              </Link>
             </div>
           </div>
         ) : (
