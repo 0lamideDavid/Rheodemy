@@ -50,6 +50,17 @@ export class AuthController {
       next(error);
     }
   }
+  /**
+   * GET /auth/me
+   */
+  async getMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.getMe(req.user!.userId);
+      sendSuccess(res, result, "User retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const authController = new AuthController();
