@@ -24,17 +24,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // Global fetch interceptor for 401 responses
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+        if (window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
+      }
+      return response;
+    };
+
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
+    
     if (savedToken && savedUser) {
-      setToken(savedToken);
       try {
-        setUser(JSON.parse(savedUser));
+        // Decode token to check expiry without verifying
+        const payload = JSON.parse(atob(savedToken.split('.')[1]));
+        const isExpired = payload.exp * 1000 < Date.now();
+
+        if (isExpired) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+          if (window.location.pathname !== '/auth') window.location.href = '/auth';
+        } else {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+
+          // Validate token with backend /me endpoint
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+          originalFetch(`${apiUrl}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${savedToken}` }
+          }).then(res => {
+            if (res.status === 401) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setToken(null);
+              setUser(null);
+              if (window.location.pathname !== '/auth') window.location.href = '/auth';
+            }
+          }).catch(console.error);
+        }
       } catch (e) {
-        console.error("Failed to parse saved user", e);
+        console.error("Failed to parse token or saved user", e);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
       }
     }
+    
     setIsLoaded(true);
+
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, []);
 
   const login = (newToken: string, newUser: any) => {

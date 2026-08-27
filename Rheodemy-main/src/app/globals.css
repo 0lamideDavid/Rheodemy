@@ -28,23 +28,6 @@
   --warning: #F59E0B;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #F8F9FC;
-    --foreground: #0D1B3E;
-    
-    --primary: #00D4C8;
-    --primary-foreground: #FFFFFF;
-    
-    --card: #FFFFFF;
-    
-    --muted: #6B7A99;
-    --border: #E2E8F0;
-    
-    --destructive: #FF4D6A;
-    --warning: #FFB347;
-  }
-}
 
 body {
   background-color: var(--background);
@@ -65,13 +48,7 @@ body {
   animation: gradient 15s ease infinite;
 }
 
-@media (prefers-color-scheme: light) {
-  .animated-bg {
-    background: linear-gradient(-45deg, #F8F9FC, #E2E8F0, #F8F9FC, #FFFFFF);
-    background-size: 400% 400%;
-    animation: gradient 15s ease infinite;
-  }
-}
+
 
 @keyframes gradient {
   0% { background-position: 0% 50%; }
