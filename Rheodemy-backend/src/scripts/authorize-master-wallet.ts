@@ -1,64 +1,95 @@
 /**
  * authorize-master-wallet.ts
  *
- * Generates a persistent, high-limit access token for the Student Master Wallet.
- * This token allows the backend to send funds continuously without prompting
- * for approval on every tick.
+ * Generates a persistent, recurring high-limit access token for the Student
+ * Master Wallet and saves it to Supabase via Prisma.
  *
- * Run: node node_modules/.bin/ts-node --transpile-only src/scripts/authorize-master-wallet.ts
+ * Key changes vs original:
+ *   - Grant uses `interval: 'R/P1Y'` (recurring, resets yearly) so it never
+ *     expires within a normal session window
+ *   - Limit raised to $10,000 at scale 2 so it covers long demo sessions
+ *   - On success the token is persisted to the `wallets.accessToken` column
+ *     in Supabase — no env-var copy/paste needed after each run
+ *
+ * Run:
+ *   node node_modules/.bin/ts-node --transpile-only src/scripts/authorize-master-wallet.ts
  */
 
 import 'dotenv/config';
 import { createAuthenticatedClient, isPendingGrant, isFinalizedGrant } from '@interledger/open-payments';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { prisma } from '../config/prisma';
 
-const STUDENT_WALLET = process.env.STUDENT_WALLET_ADDRESS ?? 'https://ilp.interledger-test.dev/rheodemy';
-const STUDENT_KEY_ID = process.env.STUDENT_KEY_ID ?? 'rheodemy-student-key-1';
-const STUDENT_KEY_PATH = process.env.STUDENT_PRIVATE_KEY_PATH ?? './keys/student.private.pem';
+const STUDENT_WALLET_ADDRESS = process.env.STUDENT_WALLET_ADDRESS ?? 'https://ilp.interledger-test.dev/rheodemy';
+const STUDENT_KEY_ID         = process.env.STUDENT_KEY_ID         ?? 'rheodemy-student-key-1';
+const STUDENT_KEY_PATH       = process.env.STUDENT_PRIVATE_KEY_PATH ?? './keys/student.private.pem';
 
-// The limit we want to authorize (e.g. $100.00)
-// At scale 2, $100.00 = 10000
-const LIMIT_AMOUNT = '10000';
+// $10,000.00 at assetScale 2 — covers any realistic demo session length
+const LIMIT_AMOUNT = '1000000';
 
 function loadKey(path: string): Buffer {
   return readFileSync(resolve(process.cwd(), path));
 }
 
+async function saveTokenToDatabase(token: string): Promise<void> {
+  await prisma.wallet.upsert({
+    where:  { walletAddress: STUDENT_WALLET_ADDRESS },
+    update: { accessToken: token },
+    create: {
+      // walletAddress is not linked to a real userId here — we look it up by
+      // walletAddress in rafiki.service.ts, so a minimal placeholder row is fine
+      // if no matching wallet exists yet.
+      walletAddress: STUDENT_WALLET_ADDRESS,
+      accessToken:   token,
+      // userId is required — if no wallet row exists we cannot create one without
+      // a real userId.  In practice the row always exists after first registration,
+      // so the `update` branch runs.  If somehow missing, this will throw and the
+      // caller should create the wallet row first.
+      userId:   'PLACEHOLDER_REPLACE_WITH_REAL_USER_ID',
+      provider: 'rafiki',
+      currency: 'USD',
+    },
+  });
+  console.log('✅ Token saved to Supabase database successfully');
+}
+
 async function main() {
-  console.log('🚀 Rheodemy — Master Wallet Authorization');
-  console.log(`   WALLET: ${STUDENT_WALLET}`);
+  console.log('🚀 Rheodemy — Master Wallet Authorization (Recurring Grant)');
+  console.log(`   WALLET: ${STUDENT_WALLET_ADDRESS}`);
 
   const studentClient = await createAuthenticatedClient({
-    keyId: STUDENT_KEY_ID,
-    privateKey: loadKey(STUDENT_KEY_PATH),
-    walletAddressUrl: STUDENT_WALLET,
+    keyId:          STUDENT_KEY_ID,
+    privateKey:     loadKey(STUDENT_KEY_PATH),
+    walletAddressUrl: STUDENT_WALLET_ADDRESS,
     // @ts-ignore
     validateResponses: false,
-    requestTimeoutMs: 60000,
+    requestTimeoutMs:  60000,
   });
 
-  const studentWallet = await studentClient.walletAddress.get({ url: STUDENT_WALLET });
-  const assetCode = studentWallet.assetCode;
+  const studentWallet = await studentClient.walletAddress.get({ url: STUDENT_WALLET_ADDRESS });
+  const assetCode  = studentWallet.assetCode;
   const assetScale = studentWallet.assetScale;
 
-  console.log(`\n▶ Requesting high-limit grant (${LIMIT_AMOUNT} ${assetCode} @ scale ${assetScale})`);
+  console.log(`\n▶ Requesting recurring high-limit grant (${LIMIT_AMOUNT} ${assetCode} @ scale ${assetScale}, interval R/P1Y)`);
 
   const nonce = Math.random().toString(36).substring(2, 18);
+
   const outgoingGrantRequest = await studentClient.grant.request(
     { url: studentWallet.authServer },
     {
       access_token: {
         access: [{
-          type: 'outgoing-payment',
-          actions: ['create', 'read', 'list'],
-          identifier: STUDENT_WALLET,
+          type:       'outgoing-payment',
+          actions:    ['create', 'read', 'list'],
+          identifier: STUDENT_WALLET_ADDRESS,
           limits: {
             debitAmount: {
-              value: LIMIT_AMOUNT,
-              assetCode: assetCode,
-              assetScale: assetScale,
+              value:      LIMIT_AMOUNT,
+              assetCode,
+              assetScale,
             },
+            interval: 'R/P1Y', // recurring — resets yearly, survives past 10-minute window
           },
         }],
       },
@@ -66,31 +97,36 @@ async function main() {
         start: ['redirect'],
         finish: {
           method: 'redirect',
-          uri: 'https://rheodemy.app/payment/callback',
+          uri:    'https://rheodemy.app/payment/callback',
           nonce,
         },
       },
     }
   );
 
+  // ── Non-interactive path (grant auto-issued) ────────────────────────────────
   if (!isPendingGrant(outgoingGrantRequest)) {
-    console.log('\n✅ Token automatically issued (no interaction required):');
-    console.log(`\nMASTER_STUDENT_TOKEN=${outgoingGrantRequest.access_token.value}\n`);
+    const token = outgoingGrantRequest.access_token.value;
+    console.log('\n✅ Token automatically issued (no interaction required).');
+    console.log(`Token: ${token}`);
+    await saveTokenToDatabase(token);
+    await prisma.$disconnect();
     return;
   }
 
+  // ── Interactive path (user must click Approve in browser) ──────────────────
   console.log('\n' + '═'.repeat(60));
   console.log('🌐 USER ACTION REQUIRED');
   console.log('═'.repeat(60));
   console.log('Open this URL in your browser to approve the master limit:');
   console.log(`\n  ${outgoingGrantRequest.interact.redirect}\n`);
-  console.log('After clicking "Approve", your browser will redirect to a broken page (https://rheodemy.app...).');
-  console.log('Look at the URL in your browser and copy the ENTIRE URL, then paste it here and press ENTER:');
+  console.log('After clicking "Approve", your browser redirects to a broken page (https://rheodemy.app...).');
+  console.log('Copy the ENTIRE URL from the browser address bar, paste it here, and press ENTER:');
   console.log('═'.repeat(60) + '\n');
 
   const readline = require('readline').createInterface({
-    input: process.stdin,
-    output: process.stdout
+    input:  process.stdin,
+    output: process.stdout,
   });
 
   const redirectUrl = await new Promise<string>((resolve) => {
@@ -107,6 +143,7 @@ async function main() {
     if (!interact_ref) throw new Error('No interact_ref param found');
   } catch (err) {
     console.error('❌ Failed to parse interact_ref from URL:', redirectUrl);
+    await prisma.$disconnect();
     process.exit(1);
   }
 
@@ -114,7 +151,7 @@ async function main() {
 
   const continuedGrant = await studentClient.grant.continue(
     {
-      url: outgoingGrantRequest.continue.uri,
+      url:         outgoingGrantRequest.continue.uri,
       accessToken: outgoingGrantRequest.continue.access_token.value,
     },
     { interact_ref }
@@ -124,16 +161,20 @@ async function main() {
     throw new Error('❌ Grant still pending — did you approve it in the browser?');
   }
 
-  console.log('\n✅ SUCCESS! Add this line to your .env file:\n');
-  console.log(`MASTER_STUDENT_TOKEN=${continuedGrant.access_token.value}\n`);
+  const token = continuedGrant.access_token.value;
+  console.log('\n✅ Grant approved and finalized!');
+  console.log(`Token: ${token}`);
+  await saveTokenToDatabase(token);
+  await prisma.$disconnect();
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('\n❌ Authorization failed:');
   console.error('  message:     ', err?.message);
   console.error('  status:      ', err?.status ?? err?.statusCode ?? 'unknown');
-  console.error('  description: ', err?.description ?? err?.description ?? '');
+  console.error('  description: ', err?.description ?? '');
   console.error('  errorCode:   ', err?.errorCode ?? '');
   console.error('  errors:      ', JSON.stringify(err?.validationErrors ?? err?.errors ?? [], null, 2));
+  await prisma.$disconnect();
   process.exit(1);
 });

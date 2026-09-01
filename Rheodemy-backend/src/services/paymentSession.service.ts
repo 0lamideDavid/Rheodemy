@@ -110,6 +110,15 @@ export class PaymentSessionService {
 
   /**
    * Ends a session cleanly — called by the student clicking "Stop" or tab close.
+   *
+   * All ILP work is done atomically here at session end:
+   *   1. Minimum threshold guard — skip ILP for negligible amounts
+   *   2. Execute ILP payment (incoming → quote → outgoing) as one unit
+   *   3. Record Transaction + Payout in DB only if ILP succeeded
+   *   4. Mark session ENDED
+   *
+   * This prevents orphaned "pending" incoming payments on the teacher wallet
+   * that would occur if ILP was initiated at session start but failed before end.
    */
   static async endSession(sessionId: string, totalAmount: number): Promise<SessionSummary> {
     activeSessions.delete(sessionId);
@@ -123,22 +132,44 @@ export class PaymentSessionService {
       throw new AppError('Session not found or already ended', 400);
     }
 
-    // 2. Attempt ILP payment for the total amount
-    let ilpResult: any;
-    if (totalAmount > 0) {
-      try {
-        ilpResult = await RafikiService.executeTickPayment(totalAmount);
-      } catch (ilpError) {
-        console.error(
-          `[PaymentSession] ✗ Final payment FAILED for session ${sessionId}. ` +
-          `Killing session. Error:`, ilpError
-        );
-        return await PaymentSessionService._killSession(sessionId, 'ILP payment failed');
-      }
+    // ── Fix 3: Minimum charge threshold ──────────────────────────────────────
+    // Payments below this amount are not worth hitting the ILP network for.
+    // The session is still cleanly ENDED — the student just doesn't get charged.
+    const MIN_CHARGE_USD = 0.001;
 
-      // 3. ILP succeeded — now safely record in DB within a transaction
-      const platformFee  = parseFloat((totalAmount * 0.1).toFixed(9));  // 10% cut
-      const netAmount    = parseFloat((totalAmount - platformFee).toFixed(9));
+    if (totalAmount <= 0 || totalAmount < MIN_CHARGE_USD) {
+      logger.info(`[PaymentSession] Session ${sessionId} below minimum threshold ($${MIN_CHARGE_USD}). Ending without payment.`);
+
+      const now = new Date();
+      const updatedSession = await prisma.paymentSession.update({
+        where: { id: sessionId },
+        data:  { status: 'ENDED', endedAt: now, totalPaid: 0 },
+      });
+
+      const summary: SessionSummary = {
+        sessionId,
+        status:    'ENDED',
+        totalPaid: 0,
+        currency:  RafikiConfig.assetCode,
+        startedAt: updatedSession.startedAt,
+        endedAt:   now,
+        tickCount: 0,
+      };
+
+      SocketService.emitSessionEnded(sessionId, summary, session.course.instructorId);
+      return summary;
+    }
+
+    // ── Atomic ILP execution + DB recording ───────────────────────────────────
+    let ilpResult: any;
+    try {
+      // All 3 ILP steps happen inside executeTickPayment — if any fails, we
+      // never reach the DB recording block, so no orphaned records are created.
+      ilpResult = await RafikiService.executeTickPayment(totalAmount);
+
+      // ILP succeeded — record Transaction and Payout atomically
+      const platformFee = parseFloat((totalAmount * 0.1).toFixed(9));  // 10% platform cut
+      const netAmount   = parseFloat((totalAmount - platformFee).toFixed(9));
 
       await prisma.$transaction(async (tx) => {
         const transaction = await tx.transaction.create({
@@ -155,7 +186,7 @@ export class PaymentSessionService {
 
         await tx.payout.create({
           data: {
-            transactionId:   transaction.id,
+            transactionId:    transaction.id,
             instructorWallet: process.env.TEACHER_WALLET_ADDRESS!,
             amount:           netAmount,
             currency:         RafikiConfig.assetCode,
@@ -169,8 +200,31 @@ export class PaymentSessionService {
           data:  { totalPaid: { increment: totalAmount } },
         });
       });
+
+    } catch (ilpError: any) {
+      logger.error(
+        `[PaymentSession] ✗ Final payment FAILED for session ${sessionId}.`,
+        { error: ilpError?.message }
+      );
+
+      if (ilpError?.description === 'Inactive Token' || ilpError?.status === 403) {
+        logger.error(
+          '🔑 ILP Token expired. ' +
+          'Re-run: npx ts-node --transpile-only src/scripts/authorize-master-wallet.ts'
+        );
+      }
+
+      // Mark FAILED so the session is not left dangling as ACTIVE
+      await prisma.paymentSession.update({
+        where: { id: sessionId },
+        data:  { status: 'FAILED' },
+      });
+
+      SocketService.emitSessionKilled(sessionId, 'ILP payment failed');
+      throw ilpError;
     }
 
+    // ── Mark session complete ─────────────────────────────────────────────────
     const now = new Date();
     const updatedSession = await prisma.paymentSession.update({
       where: { id: sessionId },
@@ -186,11 +240,10 @@ export class PaymentSessionService {
       currency:  RafikiConfig.assetCode,
       startedAt: updatedSession.startedAt,
       endedAt:   now,
-      tickCount: totalAmount > 0 ? 1 : 0,
+      tickCount: 1,
     };
 
     SocketService.emitSessionEnded(sessionId, summary, session.course.instructorId);
-
     return summary;
   }
 
