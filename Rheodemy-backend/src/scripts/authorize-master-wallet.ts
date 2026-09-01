@@ -33,25 +33,21 @@ function loadKey(path: string): Buffer {
 }
 
 async function saveTokenToDatabase(token: string): Promise<void> {
-  await prisma.wallet.upsert({
-    where:  { walletAddress: STUDENT_WALLET_ADDRESS },
-    update: { accessToken: token },
-    create: {
-      // walletAddress is not linked to a real userId here — we look it up by
-      // walletAddress in rafiki.service.ts, so a minimal placeholder row is fine
-      // if no matching wallet exists yet.
-      walletAddress: STUDENT_WALLET_ADDRESS,
-      accessToken:   token,
-      // userId is required — if no wallet row exists we cannot create one without
-      // a real userId.  In practice the row always exists after first registration,
-      // so the `update` branch runs.  If somehow missing, this will throw and the
-      // caller should create the wallet row first.
-      userId:   'PLACEHOLDER_REPLACE_WITH_REAL_USER_ID',
-      provider: 'rafiki',
-      currency: 'USD',
-    },
-  });
-  console.log('✅ Token saved to Supabase database successfully');
+  try {
+    await prisma.platformConfig.upsert({
+      where:  { key: 'MASTER_STUDENT_TOKEN' },
+      update: { value: token },
+      create: { key: 'MASTER_STUDENT_TOKEN', value: token },
+    });
+    console.log('✅ Token saved to Supabase (platform_config) successfully');
+    console.log('   Render will read it automatically on next payment — no manual update needed.');
+  } catch (dbErr: any) {
+    console.warn('\n⚠️  Could not save token to database.');
+    console.warn('   Error:', dbErr?.message);
+    console.warn('   → Copy the token above and update MASTER_STUDENT_TOKEN in Render manually.\n');
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 async function main() {
@@ -110,7 +106,6 @@ async function main() {
     console.log('\n✅ Token automatically issued (no interaction required).');
     console.log(`Token: ${token}`);
     await saveTokenToDatabase(token);
-    await prisma.$disconnect();
     return;
   }
 
@@ -143,7 +138,7 @@ async function main() {
     if (!interact_ref) throw new Error('No interact_ref param found');
   } catch (err) {
     console.error('❌ Failed to parse interact_ref from URL:', redirectUrl);
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => {});
     process.exit(1);
   }
 
@@ -165,7 +160,6 @@ async function main() {
   console.log('\n✅ Grant approved and finalized!');
   console.log(`Token: ${token}`);
   await saveTokenToDatabase(token);
-  await prisma.$disconnect();
 }
 
 main().catch(async (err) => {
@@ -175,6 +169,6 @@ main().catch(async (err) => {
   console.error('  description: ', err?.description ?? '');
   console.error('  errorCode:   ', err?.errorCode ?? '');
   console.error('  errors:      ', JSON.stringify(err?.validationErrors ?? err?.errors ?? [], null, 2));
-  await prisma.$disconnect();
+  await prisma.$disconnect().catch(() => {});
   process.exit(1);
 });

@@ -107,6 +107,18 @@ model Wallet {
   @@map("wallets")
 }
 
+// Stores platform-level config/secrets (no FK constraints).
+// Used for the master ILP access token so the authorize script
+// can write it here and Render reads it automatically — no manual
+// env var update needed after each token refresh.
+model PlatformConfig {
+  key       String   @id         // e.g. 'MASTER_STUDENT_TOKEN'
+  value     String               // the token or config value
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_config")
+}
+
 // =============================================================================
 // CONCERN 2: CONTENT
 // Models: Course, Lesson, Enrollment

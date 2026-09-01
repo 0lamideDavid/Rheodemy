@@ -48,18 +48,15 @@ export class RafikiService {
    * by running authorize-master-wallet.ts without redeploying Render.
    */
   static async getMasterToken(): Promise<string> {
-    const studentWalletAddress = process.env.STUDENT_WALLET_ADDRESS;
-
-    if (studentWalletAddress) {
-      const wallet = await prisma.wallet.findUnique({
-        where: { walletAddress: studentWalletAddress },
-      });
-      if (wallet?.accessToken) {
-        return wallet.accessToken;
-      }
+    // 1. Check platform_config table first — written by authorize-master-wallet.ts
+    const config = await prisma.platformConfig.findUnique({
+      where: { key: 'MASTER_STUDENT_TOKEN' },
+    });
+    if (config?.value) {
+      return config.value;
     }
 
-    // Fallback to env var so existing deployments don't break immediately
+    // 2. Fallback to env var (used when DB row doesn't exist yet or DB is unreachable)
     const envToken = process.env.MASTER_STUDENT_TOKEN;
     if (envToken) {
       return envToken;
