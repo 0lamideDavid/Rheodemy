@@ -91,11 +91,14 @@ export class RafikiService {
 
     try {
       // ── Step 1: Resolve teacher wallet address ────────────────────────────
+      logger.info('[RafikiService] Step 1: Resolving teacher wallet address...');
       const teacherWallet = await teacherClient.walletAddress.get({
         url: teacherWalletAddress,
       });
+      logger.info('[RafikiService] Step 1 ✓');
 
       // ── Step 2: Teacher client requests grant + creates IncomingPayment ───
+      logger.info('[RafikiService] Step 2: Requesting teacher incoming-payment grant...');
       const teacherGrant = await teacherClient.grant.request(
         { url: teacherWallet.authServer },
         {
@@ -111,7 +114,9 @@ export class RafikiService {
           'ensure non-interactive access is enabled on interledger-test.dev'
         );
       }
+      logger.info('[RafikiService] Step 2 ✓ Teacher grant received');
 
+      logger.info(`[RafikiService] Step 3: Creating incoming payment (amount: ${scaledAmount})...`);
       const incomingPayment = await teacherClient.incomingPayment.create(
         {
           url:         (teacherWallet as any).resourceServer ?? new URL(teacherWalletAddress).origin,
@@ -127,13 +132,17 @@ export class RafikiService {
           expiresAt,
         }
       );
+      logger.info(`[RafikiService] Step 3 ✓ Incoming payment created: ${incomingPayment.id}`);
 
-      // ── Step 3: Resolve student wallet address ────────────────────────────
+      // ── Step 4: Resolve student wallet address ────────────────────────────
+      logger.info('[RafikiService] Step 4: Resolving student wallet address...');
       const studentWallet = await studentClient.walletAddress.get({
         url: studentWalletAddress,
       });
+      logger.info('[RafikiService] Step 4 ✓');
 
-      // ── Step 4: Student client requests quote grant + creates Quote ────────
+      // ── Step 5: Student client requests quote grant + creates Quote ────────
+      logger.info('[RafikiService] Step 5: Requesting student quote grant...');
       const quoteGrant = await studentClient.grant.request(
         { url: studentWallet.authServer },
         {
@@ -146,7 +155,9 @@ export class RafikiService {
       if (isPendingGrant(quoteGrant)) {
         throw new Error('[RafikiService] Student wallet requires interactive grant for quote');
       }
+      logger.info('[RafikiService] Step 5 ✓ Quote grant received');
 
+      logger.info('[RafikiService] Step 6: Creating quote...');
       const quote = await studentClient.quote.create(
         {
           url:         (studentWallet as any).resourceServer ?? new URL(studentWalletAddress).origin,
@@ -158,9 +169,12 @@ export class RafikiService {
           method:        'ilp',
         }
       );
+      logger.info(`[RafikiService] Step 6 ✓ Quote created: debit=${quote.debitAmount.value} ${quote.debitAmount.assetCode}`);
 
-      // ── Step 5: Student dispatches OutgoingPayment using DB-loaded token ──
+      // ── Step 7: Student dispatches OutgoingPayment using DB-loaded token ──
+      logger.info('[RafikiService] Step 7: Loading master token...');
       const masterToken = await RafikiService.getMasterToken();
+      logger.info('[RafikiService] Step 7a: Dispatching outgoing payment...');
 
       const outgoingPayment = await studentClient.outgoingPayment.create(
         {
@@ -172,6 +186,7 @@ export class RafikiService {
           quoteId:       quote.id,
         }
       );
+      logger.info(`[RafikiService] Step 7 ✓ Outgoing payment dispatched: ${outgoingPayment.id}`);
 
       return {
         incomingPaymentId: incomingPayment.id,
@@ -190,6 +205,12 @@ export class RafikiService {
           'Re-run: npx ts-node --transpile-only src/scripts/authorize-master-wallet.ts'
         );
       }
+      logger.error('[RafikiService] ✗ Payment failed', {
+        message:     error?.message,
+        status:      error?.status ?? error?.statusCode,
+        description: error?.description,
+        errorCode:   error?.code ?? error?.errorCode,
+      });
       throw error;
     }
   }
