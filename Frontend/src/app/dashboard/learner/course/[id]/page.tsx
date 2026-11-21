@@ -347,8 +347,7 @@ const COURSES_DATABASE: Record<string, CourseRecord> = {
   }
 };
 
-const INITIAL_WALLET_BALANCE = 1200.0;
-const FREE_PREVIEW_SECONDS = 120; // 2 minutes free preview
+const INITIAL_WALLET_BALANCE = 50.0;
 const EBOOK_IDLE_TIMEOUT_SECONDS = 60; // 60s idle triggers meter pause
 const EBOOK_PAGE_MAX_BILLED_SECONDS = 45; // Max 45s charge per page
 
@@ -386,7 +385,7 @@ export default function CoursePlayerPage() {
   // Metering & Wallet states
   const [spend, setSpend] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(INITIAL_WALLET_BALANCE);
-  const [playerState, setPlayerState] = useState<PaymentState>("free_preview");
+  const [playerState, setPlayerState] = useState<PaymentState>("paused");
   const [showLiveMeter, setShowLiveMeter] = useState(true);
 
   // Server-authoritative session
@@ -561,8 +560,8 @@ export default function CoursePlayerPage() {
     highWaterMark: number,
     playing: boolean
   ): { nextState: PaymentState; nextSpend: number } => {
-    // Paid content starts strictly AFTER 120s free preview
-    const billableSeconds = Math.max(0, highWaterMark - FREE_PREVIEW_SECONDS);
+    // Paid content starts strictly from second 1
+    const billableSeconds = highWaterMark;
     const rawSpend = billableSeconds * (course.ratePerMin / 60);
     const boundedSpend = Math.min(course.unlockCap, rawSpend);
 
@@ -576,17 +575,12 @@ export default function CoursePlayerPage() {
       return { nextState: "paused", nextSpend: boundedSpend };
     }
 
-    // 3. 2-minute free preview window
-    if (timeInSeconds < FREE_PREVIEW_SECONDS) {
-      return { nextState: "free_preview", nextSpend: boundedSpend };
-    }
-
-    // 4. Rewatch protection: Rewound before highest watched time
+    // 3. Rewatch protection: Rewound before highest watched time
     if (timeInSeconds < highWaterMark) {
       return { nextState: "rewatching", nextSpend: boundedSpend };
     }
 
-    // 5. Actively streaming brand-new billable content
+    // 4. Actively streaming brand-new billable content
     return { nextState: "paying", nextSpend: boundedSpend };
   };
 
@@ -595,8 +589,6 @@ export default function CoursePlayerPage() {
     switch (playerState) {
       case "unlocked":
         return "₦0 / min (Unlocked)";
-      case "free_preview":
-        return "₦0 / min (2m Preview)";
       case "rewatching":
         return "₦0 / min (Free Rewatch)";
       case "paused":
@@ -815,9 +807,7 @@ export default function CoursePlayerPage() {
         const isFreePage = isPageVisited || isPageBilledCapped;
 
         if (isFreePage) {
-          if (nextTime < FREE_PREVIEW_SECONDS) {
-            setPlayerState("free_preview");
-          } else if (spend >= course.unlockCap) {
+          if (spend >= course.unlockCap) {
             setPlayerState("unlocked");
           } else {
             setPlayerState("rewatching");

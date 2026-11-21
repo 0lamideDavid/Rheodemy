@@ -73,10 +73,10 @@ export function CourseCard({ course, className = "" }: CourseCardProps) {
             </span>
           </div>
 
-          {/* 2-Minute Free Preview Badge */}
+          {/* Pay Per Second Badge */}
           <div className="absolute bottom-2.5 end-2.5">
             <span className="px-2 py-0.5 rounded-[4px] bg-surface text-ink text-[11px] font-semibold border border-rule shadow-xs">
-              2m free preview
+              Pay per second
             </span>
           </div>
         </div>

@@ -948,7 +948,7 @@ export default function LearnerDashboard() {
                       </div>
                       <div className="absolute bottom-2.5 end-2.5">
                         <span className="px-2 py-0.5 rounded-[4px] bg-surface text-ink text-[10px] font-semibold border border-rule shadow-xs">
-                          2m free preview
+                          Pay per second
                         </span>
                       </div>
                     </div>
@@ -1256,12 +1256,12 @@ export default function LearnerDashboard() {
                     </div>
 
                     <div className="pt-3 border-t border-rule flex items-center justify-between">
-                      <span className="text-xs text-muted">2-minute free preview ready</span>
+                      <span className="text-xs text-muted">Pay-per-second streaming ready</span>
                       <Link
                         href={`/dashboard/learner/course/${course.id}`}
                         className="btn-forest text-xs py-1.5 px-3 flex items-center gap-1"
                       >
-                        <span>Preview Free</span>
+                        <span>Stream</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
@@ -1318,7 +1318,7 @@ export default function LearnerDashboard() {
               Explore Course Catalog
             </h2>
             <p className="text-xs sm:text-sm text-muted">
-              Choose a discipline to start. Preview any lesson for 2 minutes free with zero financial commitment.
+              Choose a discipline to start. Stream any lesson with pure pay-per-second micro-payments and guaranteed price caps.
             </p>
           </div>
 
@@ -1454,7 +1454,7 @@ export default function LearnerDashboard() {
                       </div>
                       <div className="absolute bottom-2.5 end-2.5">
                         <span className="px-2 py-0.5 rounded-[4px] bg-surface text-ink text-[10px] font-semibold border border-rule shadow-xs">
-                          2m free preview
+                          Pay per second
                         </span>
                       </div>
                     </div>
@@ -1491,7 +1491,7 @@ export default function LearnerDashboard() {
                       href={`/dashboard/learner/course/${course.id}`}
                       className="btn-forest text-xs py-1.5 px-3 flex items-center gap-1"
                     >
-                      <span>Preview Free</span>
+                      <span>Stream</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>

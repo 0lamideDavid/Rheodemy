@@ -177,6 +177,29 @@ export class LedgerService {
     });
   }
 
+  /** Credits the $50 welcome / starter grant for a new learner account. */
+  static async creditStarterGrant(userId: string, amount = 50, currency = "USD") {
+    return prisma.$transaction(async (tx) => {
+      const account = await this.getUserAccount(tx, userId, "LEARNER", currency);
+      const idempotencyKey = `starter-grant:${userId}`;
+      const existing = await tx.ledgerEntry.findUnique({
+        where: { idempotencyKey },
+      });
+      if (existing) {
+        return { credited: false, amount: Number(existing.amount) };
+      }
+      await this.postEntry(tx, {
+        accountId: account.id,
+        direction: "CREDIT",
+        amount: new Prisma.Decimal(amount),
+        currency,
+        idempotencyKey,
+        description: `Welcome starter credit ($${amount})`,
+      });
+      return { credited: true, amount };
+    });
+  }
+
   /** Credits a confirmed top-up exactly once. */
   static async creditTopUp(topUpId: string) {
     return prisma.$transaction(async (tx) => {

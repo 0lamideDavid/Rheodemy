@@ -4,6 +4,7 @@ import { signToken } from "../utils/jwt";
 import { Conflict, Unauthorized, Forbidden } from "../utils/errors";
 import { RegisterInput, LoginInput } from "../types/auth.types";
 import { Role } from "@prisma/client";
+import { LedgerService } from "./ledger.service";
 
 /**
  * AuthService — all authentication business logic.
@@ -57,6 +58,15 @@ export class AuthService {
         createdAt: true,
       },
     });
+
+    // Credit $50 starter grant to new student learner account
+    if (user.role === "STUDENT") {
+      try {
+        await LedgerService.creditStarterGrant(user.id, 50, "USD");
+      } catch (err) {
+        // Log but don't fail registration
+      }
+    }
 
     // Sign token
     const token = signToken({
