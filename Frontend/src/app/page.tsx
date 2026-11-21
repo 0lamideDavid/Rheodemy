@@ -738,31 +738,26 @@ export default function EditorialLandingPage() {
             </p>
           </div>
 
-          {/* Proportional Split Bar */}
+          {/* Proportional Split Bar (50% Creator, 45% Platform, 5% Community Reserve) */}
           <div className="space-y-3 pt-2">
             <div className="h-4 w-full bg-rule rounded-sm overflow-hidden flex">
-              <div className="h-full bg-forest" style={{ width: "75%" }} title="75% to Educator" />
-              <div className="h-full bg-[#3B5B7E]" style={{ width: "15%" }} title="15% Platform infrastructure" />
-              <div className="h-full bg-sun" style={{ width: "5%" }} title="5% Rating insurance" />
-              <div className="h-full bg-clay" style={{ width: "5%" }} title="5% Community refund reserve" />
+              <div className="h-full bg-forest" style={{ width: "50%" }} title="50% to Creator" />
+              <div className="h-full bg-[#3B5B7E]" style={{ width: "45%" }} title="45% Platform operations" />
+              <div className="h-full bg-sun" style={{ width: "5%" }} title="5% Community reserve" />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-2">
               <div>
-                <span className="font-mono font-bold text-sm text-forest block">75% Teacher</span>
+                <span className="font-mono font-bold text-sm text-forest block">50% Creator</span>
                 <span className="text-muted text-[11px]">Streamed directly to verified educator&apos;s wallet.</span>
               </div>
               <div>
-                <span className="font-mono font-bold text-sm text-[#3B5B7E] block">15% Operations</span>
+                <span className="font-mono font-bold text-sm text-[#3B5B7E] block">45% Platform Operations</span>
                 <span className="text-muted text-[11px]">Low-bandwidth edge CDN hosting and verification.</span>
               </div>
               <div>
-                <span className="font-mono font-bold text-sm text-ink block">5% Insurance</span>
-                <span className="text-muted text-[11px]">Protects teachers against unexpected disconnects.</span>
-              </div>
-              <div>
-                <span className="font-mono font-bold text-sm text-clay block">5% Reserve</span>
-                <span className="text-muted text-[11px]">Guarantees one-tap refunds if a session has issues.</span>
+                <span className="font-mono font-bold text-sm text-sun block">5% Community Reserve</span>
+                <span className="text-muted text-[11px]">Guarantees one-tap refunds and regional bursaries.</span>
               </div>
             </div>
           </div>

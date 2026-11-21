@@ -858,7 +858,7 @@ export default function CoursePlayerPage() {
         </header>
 
         <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          Every second you stream this book, micro-kobo fractions are dynamically routed through Interledger: 80% directly into the creator&apos;s verified bank account, 15% to maintain node infrastructure, and 5% directly into the regional bursary reserve for underrepresented students.
+          Every second you stream this book, micro-kobo fractions are dynamically routed through Interledger: 50% directly into the creator&apos;s verified bank account, 45% to maintain node infrastructure, and 5% directly into the regional bursary reserve for underrepresented students.
         </p>
 
         <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>

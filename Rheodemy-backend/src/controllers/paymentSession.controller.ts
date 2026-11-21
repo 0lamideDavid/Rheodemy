@@ -63,9 +63,11 @@ export class PaymentSessionController {
    */
   static async endSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const sessionId = req.params.id;
-      const { totalAmount } = req.body;
-      const result = await PaymentSessionService.endSession(sessionId, totalAmount);
+      const result = await PaymentSessionService.endSession(
+        req.params.id,
+        req.user!.userId,
+        req.user!.role === 'ADMIN'
+      );
       sendSuccess(res, result, 'Session ended and payment executed');
     } catch (err) {
       next(err);
@@ -78,8 +80,46 @@ export class PaymentSessionController {
    */
   static async killSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const summary = await PaymentSessionService.killSession(req.params.id);
+      const summary = await PaymentSessionService.killSession(
+        req.params.id,
+        req.user!.userId,
+        req.user!.role === 'ADMIN'
+      );
       sendSuccess(res, summary, 'Session killed');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /sessions/:id/pause
+   * Stops the server money clock without ending the session.
+   */
+  static async pauseSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const summary = await PaymentSessionService.pauseSession(
+        req.params.id,
+        req.user!.userId,
+        req.user!.role === 'ADMIN'
+      );
+      sendSuccess(res, summary, 'Session paused');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /sessions/:id/resume
+   * Resumes charging on an existing session.
+   */
+  static async resumeSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const summary = await PaymentSessionService.resumeSession(
+        req.params.id,
+        req.user!.userId,
+        req.user!.role === 'ADMIN'
+      );
+      sendSuccess(res, summary, 'Session resumed');
     } catch (err) {
       next(err);
     }

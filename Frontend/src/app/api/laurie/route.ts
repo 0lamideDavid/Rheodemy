@@ -50,7 +50,7 @@ RHEODEMY PLATFORM TRUTHS:
 - Learners stream payments per second only while actively watching, reading, or listening.
 - $0.00 while paused, buffering, or reading at a slow contemplative pace.
 - Rent-to-own: Every second spent counts toward the course's lifetime unlock cap. Once the cap is reached, the course is 100% permanently owned with free lifetime rewatch.
-- Transparent Revenue Split: 80% directly to the Creator, 15% Platform infrastructure, 5% Regional Bursary Fund for underrepresented students.
+- Transparent Revenue Split: 50% directly to the Creator, 45% Platform infrastructure, 5% Regional Bursary Fund for underrepresented students.
 - Currency: Nigerian Naira ($) for domestic students, with global Interledger settlement.
 
 SAFETY & GUARDRAILS:

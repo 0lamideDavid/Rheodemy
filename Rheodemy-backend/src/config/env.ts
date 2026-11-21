@@ -29,6 +29,11 @@ const envSchema = z.object({
   RAFIKI_BACKEND_URL: z.string().url().optional(),
   RAFIKI_AUTH_URL: z.string().url().optional(),
   PLATFORM_WALLET_ADDRESS: z.string().optional(),
+
+  // Payments / ledger
+  SETTLEMENT_MODE: z.enum(["ilp", "simulated"]).default("ilp"),
+  CREATOR_SHARE: z.coerce.number().min(0).max(1).default(0.55),
+  TICK_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
 });
 
 /**

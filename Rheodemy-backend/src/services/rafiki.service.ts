@@ -21,10 +21,23 @@
  *     orphan invoices on the teacher wallet if endSession is called promptly
  */
 
-import { getStudentClient, getTeacherClient, RafikiConfig } from '../config/rafiki';
+import { getStudentClient, getTeacherClient } from '../config/rafiki';
 import { isPendingGrant } from '@interledger/open-payments';
 import { prisma } from '../config/prisma';
 import { logger } from '../utils/logger';
+
+// The Open Payments SDK exposes `failed` + spent amounts rather than a status
+// string, so derive a status the rest of the app can reason about.
+function outgoingStatus(payment: {
+  failed: boolean;
+  sentAmount?: { value: string };
+  debitAmount?: { value: string };
+}): 'FAILED' | 'COMPLETED' | 'PROCESSING' {
+  if (payment.failed) return 'FAILED';
+  const sent = BigInt(payment.sentAmount?.value ?? '0');
+  const debit = BigInt(payment.debitAmount?.value ?? '0');
+  return debit > 0n && sent >= debit ? 'COMPLETED' : 'PROCESSING';
+}
 
 // ── Result types ──────────────────────────────────────────────────────────────
 
@@ -35,6 +48,7 @@ export interface TickPaymentResult {
   sentAmount: string;          // Actual sent amount (may differ due to FX)
   receivedAssetCode: string;
   sentAssetCode: string;
+  status: string;              // Open Payments outgoing payment status
 }
 
 // ── RafikiService ─────────────────────────────────────────────────────────────
@@ -85,7 +99,6 @@ export class RafikiService {
     const teacherClient = await getTeacherClient();
     const studentClient = await getStudentClient();
 
-    const scaledAmount = RafikiConfig.toScaledAmount(amountUsd);
     // 10-minute window — incoming payment won't linger as "pending" on teacher wallet
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
@@ -96,6 +109,19 @@ export class RafikiService {
         url: teacherWalletAddress,
       });
       logger.info('[RafikiService] Step 1 ✓');
+
+      // Use the receiver wallet's native asset instead of a hardcoded USD/2.
+      const assetCode = teacherWallet.assetCode;
+      const assetScale = teacherWallet.assetScale;
+      const scaledAmount = BigInt(
+        Math.round(amountUsd * 10 ** assetScale)
+      ).toString();
+      if (assetCode !== 'USD') {
+        logger.warn(
+          `[RafikiService] Receiver asset is ${assetCode} (scale ${assetScale}); ` +
+            'amount is treated as USD-equivalent for this demo.'
+        );
+      }
 
       // ── Step 2: Teacher client requests grant + creates IncomingPayment ───
       logger.info('[RafikiService] Step 2: Requesting teacher incoming-payment grant...');
@@ -125,9 +151,9 @@ export class RafikiService {
         {
           walletAddress: teacherWalletAddress,
           incomingAmount: {
-            value:      scaledAmount.toString(),
-            assetCode:  RafikiConfig.assetCode,
-            assetScale: RafikiConfig.assetScale,
+            value:      scaledAmount,
+            assetCode,
+            assetScale,
           },
           expiresAt,
         }
@@ -195,6 +221,7 @@ export class RafikiService {
         sentAmount:        outgoingPayment.sentAmount?.value ?? '0',
         receivedAssetCode: quote.receiveAmount.assetCode,
         sentAssetCode:     quote.debitAmount.assetCode,
+        status:            outgoingStatus(outgoingPayment),
       };
 
     } catch (error: any) {
@@ -213,5 +240,29 @@ export class RafikiService {
       });
       throw error;
     }
+  }
+
+  /** Settles the gross session charge to the platform receiver. */
+  static async settleGross(amountUsd: number): Promise<TickPaymentResult> {
+    return this.executeTickPayment(amountUsd);
+  }
+
+  /** Fetches the current state of an outgoing payment (for confirmation polling). */
+  static async getOutgoingPayment(url: string): Promise<{
+    id: string;
+    status: string;
+    sentAmount?: string;
+  }> {
+    const studentClient = await getStudentClient();
+    const token = await RafikiService.getMasterToken();
+    const payment = await studentClient.outgoingPayment.get({
+      url,
+      accessToken: token,
+    });
+    return {
+      id: payment.id,
+      status: outgoingStatus(payment),
+      sentAmount: payment.sentAmount?.value,
+    };
   }
 }

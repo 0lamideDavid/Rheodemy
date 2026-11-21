@@ -43,8 +43,27 @@ export const enrollSchema = z.object({
   courseId: z.string().uuid("Invalid course ID"),
 });
 
+// ── Progress & Feedback Schemas ─────────────────────────────────────────────
+
+export const updateProgressSchema = z.object({
+  lessonId: z.string().uuid("Invalid lesson ID").optional(),
+  lastPosition: z.string().optional(),
+  lastSeconds: z.number().int().min(0).optional(),
+  minutesLearned: z.number().int().min(0).optional(),
+  completed: z.boolean().optional(),
+});
+
+export const feedbackSchema = z.object({
+  rating: z.number().int().min(1, "Rating must be 1 to 5").max(5, "Rating must be 1 to 5"),
+  category: z.string().default("monetization"),
+  comment: z.string().min(1, "Comment cannot be empty").max(1000),
+});
+
 // ── Inferred Types ───────────────────────────────────────────────────────────
 
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type CreateLessonInput = z.infer<typeof createLessonSchema>;
 export type EnrollInput = z.infer<typeof enrollSchema>;
+export type UpdateProgressInput = z.infer<typeof updateProgressSchema>;
+export type FeedbackInput = z.infer<typeof feedbackSchema>;
+

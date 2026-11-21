@@ -1,154 +1,158 @@
+import { randomUUID } from "crypto";
 import { prisma } from "../config/prisma";
-import { NotFound } from "../utils/errors";
+import { NotFound, BadRequest } from "../utils/errors";
+import { LedgerService } from "./ledger.service";
+
+const CURRENCY = "USD";
+const MIN_TOPUP = 0.5;
+const MAX_TOPUP = 10_000;
+/** Simulated rails confirm this many ms after the top-up is created. */
+const SIMULATED_CONFIRM_MS = 2_000;
+
+export interface TopUpInput {
+  amount: number;
+  provider?: string;
+  currency?: string;
+}
 
 export class WalletService {
   /**
-   * Get wallet balance for a user.
-   * - Learner balance: $50 starting balance minus total spent.
-   * - Creator balance: Total net amount earned from all their courses.
+   * Real balances from the double-entry ledger.
+   * - Learner balance: top-ups minus streamed charges.
+   * - Creator balance: 55% of every charge on their courses.
    */
   async getBalance(userId: string) {
-    // Check if user exists and get role
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });
+    if (!user) throw NotFound("User not found");
 
-    if (!user) {
-      throw NotFound("User not found");
-    }
-
-    // Calculate Learner Balance (Student spending)
-    // Find all payment sessions for this user
-    const studentSessions = await prisma.paymentSession.findMany({
-      where: { userId },
-      select: { totalPaid: true },
-    });
-    
-    const totalSpent = studentSessions.reduce((sum, session) => sum + Number(session.totalPaid), 0);
-    const learnerBalance = Math.max(0, 50 - totalSpent); // Fake starting balance of $50
-
-    // Calculate Creator Balance (Instructor earnings)
-    let creatorBalance = 0;
-    if (user.role === "INSTRUCTOR" || user.role === "ADMIN") {
-      // Find all courses owned by this instructor
-      const courses = await prisma.course.findMany({
-        where: { instructorId: userId },
-        select: { id: true },
-      });
-      const courseIds = courses.map((c) => c.id);
-
-      // Find all transactions for these courses
-      const transactions = await prisma.transaction.findMany({
-        where: {
-          session: {
-            courseId: { in: courseIds }
-          }
-        },
-        select: { netAmount: true },
-      });
-
-      creatorBalance = transactions.reduce((sum, tx) => sum + Number(tx.netAmount), 0);
-    }
+    const learnerBalance = await LedgerService.getLearnerBalance(userId, CURRENCY);
+    const creatorBalance =
+      user.role === "INSTRUCTOR" || user.role === "ADMIN"
+        ? await LedgerService.getCreatorBalance(userId, CURRENCY)
+        : 0;
 
     return {
       learnerBalance,
       creatorBalance,
-      currency: "USD"
+      currency: CURRENCY,
     };
   }
 
-  /**
-   * Get transaction history for a user (both spending and earning).
-   */
   async getTransactions(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });
-
-    if (!user) {
-      throw NotFound("User not found");
-    }
-
-    const txs: any[] = [];
-
-    // 1. Spending transactions (as a Learner)
-    const studentSessions = await prisma.paymentSession.findMany({
-      where: { userId },
-      include: {
-        course: { select: { title: true } },
-        transactions: true,
-      },
-    });
-
-    for (const session of studentSessions) {
-      for (const tx of session.transactions) {
-        txs.push({
-          id: tx.id,
-          type: "DEBIT",
-          amount: Number(tx.amount),
-          description: `Streaming: ${session.course.title}`,
-          createdAt: tx.createdAt,
-        });
-      }
-    }
-
-    // 2. Earning transactions (as a Creator)
-    if (user.role === "INSTRUCTOR" || user.role === "ADMIN") {
-      const courses = await prisma.course.findMany({
-        where: { instructorId: userId },
-        select: { id: true, title: true },
-      });
-      const courseIds = courses.map((c) => c.id);
-      const courseMap = new Map(courses.map(c => [c.id, c.title]));
-
-      const earningSessions = await prisma.paymentSession.findMany({
-        where: { courseId: { in: courseIds } },
-        include: { transactions: true },
-      });
-
-      for (const session of earningSessions) {
-        for (const tx of session.transactions) {
-          txs.push({
-            id: `earn-${tx.id}`,
-            type: "CREDIT",
-            amount: Number(tx.netAmount),
-            description: `Revenue: ${courseMap.get(session.courseId)}`,
-            createdAt: tx.createdAt,
-          });
-        }
-      }
-    }
-
-    // Add a fake initial deposit transaction for visual completeness
-    txs.push({
-      id: "fake-initial-deposit",
-      type: "CREDIT",
-      amount: 50.00,
-      description: "Initial Grant",
-      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-    });
-
-    // Sort by descending date
-    return txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (!user) throw NotFound("User not found");
+    return LedgerService.getEntriesForUser(userId, CURRENCY);
   }
 
-  /**
-   * Get the user's wallet pointer URL.
-   */
   async getWalletPointer(userId: string) {
     const wallet = await prisma.wallet.findUnique({
       where: { userId },
       select: { walletAddress: true },
     });
+    if (!wallet) throw NotFound("Wallet not found");
+    return { pointerUrl: wallet.walletAddress };
+  }
 
-    if (!wallet) {
-      throw NotFound("Wallet not found");
+  /**
+   * Creates a pending top-up. With the simulated rail the confirmation is
+   * picked up by polling `getTopUpStatus` (or the webhook seam).
+   */
+  async createTopUp(userId: string, input: TopUpInput) {
+    const amount = Number(input.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw BadRequest("Top-up amount must be a positive number");
+    }
+    if (amount < MIN_TOPUP) {
+      throw BadRequest(`Minimum top-up is $${MIN_TOPUP}`);
+    }
+    if (amount > MAX_TOPUP) {
+      throw BadRequest(`Maximum top-up is $${MAX_TOPUP}`);
+    }
+
+    const provider = input.provider ?? "simulated";
+    const reference = `topup_${randomUUID()}`;
+
+    const topUp = await prisma.topUp.create({
+      data: {
+        userId,
+        reference,
+        amount,
+        currency: input.currency ?? CURRENCY,
+        provider,
+        status: "PENDING",
+      },
+    });
+
+    return {
+      reference: topUp.reference,
+      amount: Number(topUp.amount),
+      currency: topUp.currency,
+      provider: topUp.provider,
+      status: topUp.status,
+      // Simulated rails need no external redirect.
+      authorizationUrl: null,
+    };
+  }
+
+  /**
+   * Returns a top-up's status. Simulated top-ups auto-confirm after a short
+   * delay, which mirrors a provider callback without trusting the browser.
+   */
+  async getTopUpStatus(userId: string, reference: string) {
+    const topUp = await prisma.topUp.findFirst({
+      where: { reference, userId },
+    });
+    if (!topUp) throw NotFound("Top-up not found");
+
+    let status = topUp.status;
+    if (
+      status === "PENDING" &&
+      topUp.provider === "simulated" &&
+      Date.now() - topUp.createdAt.getTime() >= SIMULATED_CONFIRM_MS
+    ) {
+      await LedgerService.creditTopUp(topUp.id);
+      status = "COMPLETED";
     }
 
     return {
-      pointerUrl: wallet.walletAddress
+      reference: topUp.reference,
+      amount: Number(topUp.amount),
+      currency: topUp.currency,
+      provider: topUp.provider,
+      status,
+      completedAt:
+        status === "COMPLETED" ? new Date().toISOString() : null,
+    };
+  }
+
+  /**
+   * Webhook seam for real providers. Verifies the reference exists, then
+   * credits exactly once (idempotent by top-up id).
+   */
+  async confirmTopUp(reference: string, providerRef?: string) {
+    const topUp = await prisma.topUp.findUnique({ where: { reference } });
+    if (!topUp) throw NotFound("Top-up not found");
+
+    const result = await LedgerService.creditTopUp(topUp.id);
+    if (providerRef) {
+      await prisma.topUp.update({
+        where: { id: topUp.id },
+        data: { providerRef },
+      });
+    }
+
+    return {
+      reference: topUp.reference,
+      userId: topUp.userId,
+      credited: result.credited,
+      amount: result.amount,
+      currency: topUp.currency,
     };
   }
 }

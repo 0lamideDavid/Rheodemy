@@ -6,6 +6,7 @@ import enrollmentRoutes from "./routes/enrollment.routes";
 import sessionRoutes from "./routes/session.routes";
 import adminRoutes from "./routes/admin.routes";
 import walletRoutes from "./routes/wallet.routes";
+import feedbackRoutes from "./routes/feedback.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestLogger } from "./middleware/requestLogger";
 
@@ -34,6 +35,7 @@ app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/feedback", feedbackRoutes);
 
 // ── Global Error Handler (must be LAST) ──────────────────────────────────────
 app.use(errorHandler);

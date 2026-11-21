@@ -74,8 +74,8 @@ export default function BecomeCreatorPage() {
                   <ShieldCheck className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Retain 80% of Revenue</h3>
-                  <p className="text-sm text-muted mt-1">Take home the lion&apos;s share of your earnings with our transparent split.</p>
+                  <h3 className="font-semibold text-foreground">Retain 50% of Revenue</h3>
+                  <p className="text-sm text-muted mt-1">Take home your creator share with our transparent split.</p>
                 </div>
               </div>
             </div>
@@ -139,7 +139,7 @@ export default function BecomeCreatorPage() {
                 </button>
               </div>
               <p className="text-xs text-center text-muted mt-4">
-                By registering, you agree to the Rheodemy Terms of Service and the 80/15/5 revenue split.
+                By registering, you agree to the Rheodemy Terms of Service and the 50/45/5 revenue split.
               </p>
             </form>
           </div>

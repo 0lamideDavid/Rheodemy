@@ -3,6 +3,7 @@ import { courseService } from "../services/course.service";
 import {
   createCourseSchema,
   createLessonSchema,
+  updateProgressSchema,
 } from "../types/course.types";
 import { sendSuccess } from "../utils/response";
 import { BadRequest } from "../utils/errors";
@@ -106,6 +107,79 @@ export class CourseController {
         req.user!.userId
       );
       sendSuccess(res, courses, "Your courses retrieved");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /courses/in-progress — Get in-progress, resume course, and saved list for learner
+   */
+  async getInProgress(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await courseService.getUserInProgressCourses(req.user!.userId);
+      sendSuccess(res, data, "In-progress courses retrieved");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /courses/:id/progress — Update playback and minutes learned
+   */
+  async updateProgress(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = updateProgressSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw BadRequest(
+          Object.values(parsed.error.flatten().fieldErrors).flat().join(", ")
+        );
+      }
+      const progress = await courseService.updateCourseProgress(
+        req.user!.userId,
+        req.params.id,
+        parsed.data
+      );
+      sendSuccess(res, progress, "Progress updated");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /courses/:id/save — Toggle save/bookmark
+   */
+  async toggleBookmark(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await courseService.toggleBookmark(
+        req.user!.userId,
+        req.params.id
+      );
+      sendSuccess(res, result, result.saved ? "Course bookmarked" : "Course removed from bookmarks");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /courses/saved — Get saved courses
+   */
+  async getBookmarks(req: Request, res: Response, next: NextFunction) {
+    try {
+      const bookmarks = await courseService.getUserBookmarks(req.user!.userId);
+      sendSuccess(res, bookmarks, "Bookmarks retrieved");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /courses/instructor/stats — Aggregated creator analytics
+   */
+  async getInstructorStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const stats = await courseService.getInstructorStats(req.user!.userId);
+      sendSuccess(res, stats, "Instructor stats retrieved");
     } catch (error) {
       next(error);
     }

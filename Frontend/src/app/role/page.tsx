@@ -36,7 +36,7 @@ const ROLE_I18N: Record<
       "Opening learner grant: $1,200 starting credits"
     ],
     eBullets: [
-      "Receive 80% direct creator share on every streamed second",
+      "Receive 50% direct creator share on every streamed second",
       "Zero 30-day withholding periods — withdraw anytime",
       "5-layer verified educator reputation badge",
       "Full support for Video, Audio Podcasts, and Ebooks"
@@ -54,7 +54,7 @@ const ROLE_I18N: Record<
       "Crédit de bienvenue : 1 200 FCFA offerts"
     ],
     eBullets: [
-      "Recevez 80% de part créateur directe par seconde diffusée",
+      "Recevez 50% de part créateur directe par seconde diffusée",
       "Zéro délai de rétention de 30 jours — retrait immédiat",
       "Badge d'enseignant vérifié en 5 étapes",
       "Prise en charge intégrale : Vidéo, Audio et E-books"
@@ -72,7 +72,7 @@ const ROLE_I18N: Record<
       "Bolsa inicial de estudante: 1.200 créditos"
     ],
     eBullets: [
-      "Receba 80% da partilha de criador por segundo transmitido",
+      "Receba 50% da partilha de criador por segundo transmitido",
       "Sem períodos de retenção de 30 dias — levante quando quiser",
       "Crachá de educador verificado em 5 níveis",
       "Suporte para Vídeo, Podcasts e E-books"
@@ -90,7 +90,7 @@ const ROLE_I18N: Record<
       "Crédito inicial para aprender: 1.200 de saldo"
     ],
     eBullets: [
-      "Recibe el 80% de ingresos directos por segundo transmitido",
+      "Recibe el 50% de ingresos directos por segundo transmitido",
       "Sin retenciones de 30 días — retiros en cualquier momento",
       "Insignia de reputación docente verificada en 5 niveles",
       "Soporte completo para Video, Podcasts y Libros electrónicos"
@@ -108,7 +108,7 @@ const ROLE_I18N: Record<
       "منحة الطالب الترحيبية: 1,200 رصيد بدء"
     ],
     eBullets: [
-      "احصل على 80% حصة منشئ المحتوى المباشرة عن كل ثانية تدفق",
+      "احصل على 50% حصة منشئ المحتوى المباشرة عن كل ثانية تدفق",
       "بدون فترات حجز 30 يوماً — سحب فوري في أي وقت",
       "شارة معلم موثق من 5 طبقات فحص",
       "دعم شامل لدروس الفيديو والبودكاست والكتب الإلكترونية"
@@ -126,7 +126,7 @@ const ROLE_I18N: Record<
       "Ruzuku ya mwanafunzi: salio la bure la KSh 1,200"
     ],
     eBullets: [
-      "Pata asilimia 80% ya mapato moja kwa moja kwa kila sekunde",
+      "Pata asilimia 50% ya mapato moja kwa moja kwa kila sekunde",
       "Hakuna kuzuiliwa kwa siku 30 — toa pesa wakati wowote",
       "Beji ya uthibitisho wa mwalimu ya ngazi 5",
       "Msaada kamili kwa Video, Sauti na Vitabu vya Kielektroniki"

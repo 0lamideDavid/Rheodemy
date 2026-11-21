@@ -84,6 +84,11 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
         socket.emit('joined', { sessionId });
       });
 
+      // Every authenticated user gets a personal room for wallet updates.
+      if (user?.userId) {
+        socket.join(`user:${user.userId}`);
+      }
+
       if (user?.role === 'INSTRUCTOR') {
         socket.join(`creator:${user.userId}`);
         console.log(`[Socket.io] 🟢 Instructor joined creator room -> creator:${user.userId}`);
@@ -119,11 +124,27 @@ export const SocketService = {
    * Emitted on every chunky ticker interval.
    * Delivers the full TickResult (including FX data) to clients in the session room.
    */
-  emitTick(sessionId: string, tickResult: object): void {
+  emitTick(sessionId: string, tickResult: object, creatorId?: string): void {
     if (!_io) return;
     console.log(`[Socket.io] 💸 Emitting payment:tick to room -> session:${sessionId}`);
-    _io.to(`session:${sessionId}`).emit('payment:tick', { sessionId, ...tickResult });
+    const payload = { sessionId, ...tickResult };
+    _io.to(`session:${sessionId}`).emit('payment:tick', payload);
+    if (creatorId) {
+      _io.to(`creator:${creatorId}`).emit('payment:tick', payload);
+    }
     logger.debug('[Socket.io] payment:tick emitted', { sessionId });
+  },
+
+  /**
+   * Pushes a fresh balance to a user's personal room after a top-up or charge.
+   */
+  emitWalletUpdated(userId: string, balance: object): void {
+    if (!_io) return;
+    _io.to(`user:${userId}`).emit('wallet:updated', {
+      ...balance,
+      timestamp: new Date().toISOString(),
+    });
+    logger.debug('[Socket.io] wallet:updated emitted', { userId });
   },
 
   /**

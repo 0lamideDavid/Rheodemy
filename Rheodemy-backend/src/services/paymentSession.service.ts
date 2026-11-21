@@ -1,87 +1,93 @@
 /**
- * paymentSession.service.ts — Chunky Ticker + Fail-Safe Payment Loop
+ * paymentSession.service.ts — Server-authoritative metered sessions.
  *
- * Architecture: Static Dual-Pointer / Master Faucet
- * ──────────────────────────────────────────────────
- * - Virtual balance is decremented on session end via a single ILP payment
- * - Active sessions live in-memory (Map) — acceptable for hackathon demo
+ * The server owns the money clock. Clients only start / pause / resume / end.
+ * Every tick:
+ *   1. Computes the charge from the course rate and the tick interval.
+ *   2. Posts a balanced ledger charge (learner debit, creator 55%, platform 45%).
+ *   3. Updates the session total and emits `payment:tick` + `wallet:updated`.
  *
- * Session termination triggers:
- *   1. User calls POST /sessions/:id/end
- *   2. Admin calls POST /sessions/:id/kill (Phase 5)
+ * At session end the gross total is settled over Open Payments (or simulated),
+ * then a Transaction + Payout are recorded. If settlement fails, the ledger
+ * charges for that session are reversed so the learner is not left charged.
  */
 
-import { prisma } from '../config/prisma';
-import { RafikiService } from './rafiki.service';
-import { RafikiConfig } from '../config/rafiki';
-import { AppError } from '../utils/errors';
-import { logger } from '../utils/logger';
-import { SocketService } from '../socket/index';
+import { prisma } from "../config/prisma";
+import { env } from "../config/env";
+import { RafikiService } from "./rafiki.service";
+import { LedgerService } from "./ledger.service";
+import { AppError } from "../utils/errors";
+import { logger } from "../utils/logger";
+import { SocketService } from "../socket/index";
 
-// ── Ticker state (in-memory) ──────────────────────────────────────────────────
+const MIN_CHARGE_USD = 0.000001;
+const SETTLEMENT_POLL_MS = 1500;
+const SETTLEMENT_TIMEOUT_MS = 20000;
 
-// ── State (in-memory) ──────────────────────────────────────────────────
+interface SessionRuntime {
+  sessionId: string;
+  userId: string;
+  courseId: string;
+  instructorId: string;
+  pricePerMinute: number;
+  unlockPrice: number;
+  currency: string;
+  tickIndex: number;
+  totalCharged: number;
+  paused: boolean;
+  locked: boolean;
+  timer: ReturnType<typeof setInterval> | null;
+}
 
-const activeSessions = new Set<string>();
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+const activeSessions = new Map<string, SessionRuntime>();
 
 export interface StartSessionInput {
-  userId:   string;
+  userId: string;
   courseId: string;
   lessonId?: string;
 }
 
-export interface TickResult {
-  transactionId: string;
-  payoutId:      string;
-  amountPaid:    number;
-  currency:      string;        // always USD (base)
-  localAmount:   number;        // amountPaid converted to student's display currency
-  localCurrency: string;        // e.g. 'NGN'
-  fxRate:        number;        // rate used for conversion
-  ilpRef:        string;        // outgoing payment URL — unique ILP reference
-  tickIndex:     number;
-  totalPaid:     number;        // session running total (USD) after this tick
-  totalPaidLocal: number;       // session running total in local currency
-}
-
 export interface SessionSummary {
-  sessionId:  string;
-  status:     string;
-  totalPaid:  number;
-  currency:   string;
-  startedAt:  Date;
-  endedAt:    Date | null;
-  tickCount:  number;
+  sessionId: string;
+  status: string;
+  totalPaid: number;
+  currency: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  tickCount: number;
 }
 
-// ── PaymentSessionService ─────────────────────────────────────────────────────
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export class PaymentSessionService {
+  private static tickSeconds(): number {
+    return Math.max(1, Math.round((env.TICK_INTERVAL_MS ?? 5000) / 1000));
+  }
 
   /**
-   * Opens a new PaymentSession.
+   * Opens a new PaymentSession and starts the server ticker.
    */
   static async startSession(input: StartSessionInput): Promise<{ sessionId: string }> {
     const { userId, courseId, lessonId } = input;
 
-    // Ensure student has sufficient virtual balance before starting
     let wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
-      console.warn(`[PaymentSession] Student wallet not found for user ${userId}. Auto-creating default wallet...`);
       wallet = await prisma.wallet.create({
         data: {
           userId,
-          walletAddress: `https://ilp.interledger-test.dev/${userId}`,
+          walletAddress:
+            process.env.STUDENT_WALLET_ADDRESS ??
+            `https://ilp.interledger-test.dev/${userId}`,
           provider: "rafiki",
-          currency: "USD"
-        }
+          currency: "USD",
+        },
       });
     }
 
     const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course) throw new AppError('Course not found', 404);
+    if (!course) throw new AppError("Course not found", 404);
 
     const session = await prisma.paymentSession.create({
       data: {
@@ -89,254 +95,421 @@ export class PaymentSessionService {
         courseId,
         ...(lessonId ? { lessonId } : {}),
         totalPaid: 0,
-        status: 'ACTIVE',
+        status: "ACTIVE",
       },
     });
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    const studentName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Anonymous Student';
+    const studentName = user
+      ? `${user.firstName} ${user.lastName}`.trim()
+      : "Anonymous Student";
 
-    activeSessions.add(session.id);
+    const runtime: SessionRuntime = {
+      sessionId: session.id,
+      userId,
+      courseId,
+      instructorId: course.instructorId,
+      pricePerMinute: Number(course.pricePerMinute),
+      unlockPrice: Number(course.unlockPrice ?? 0),
+      currency: course.currency || "USD",
+      tickIndex: 0,
+      totalCharged: 0,
+      paused: false,
+      locked: false,
+      timer: null,
+    };
 
-    // Notify connected clients
-    SocketService.emitSessionStarted(session.id, userId, courseId, course.instructorId, course.title, studentName);
+    runtime.timer = setInterval(() => {
+      void PaymentSessionService.tick(runtime);
+    }, env.TICK_INTERVAL_MS ?? 5000);
+    activeSessions.set(session.id, runtime);
 
-    console.log(
-      `[PaymentSession] ▶ Session ${session.id} started.`
+    SocketService.emitSessionStarted(
+      session.id,
+      userId,
+      courseId,
+      course.instructorId,
+      course.title,
+      studentName
     );
 
+    logger.info(`[PaymentSession] ▶ Session ${session.id} started`);
     return { sessionId: session.id };
   }
 
+  private static async tick(runtime: SessionRuntime): Promise<void> {
+    if (runtime.paused || runtime.locked) return;
+    runtime.locked = true;
+
+    try {
+      const active = await prisma.paymentSession.findUnique({
+        where: { id: runtime.sessionId },
+        select: { status: true },
+      });
+      if (!active || active.status !== "ACTIVE") {
+        this.stopRuntime(runtime);
+        return;
+      }
+
+      const tickAmount =
+        (runtime.pricePerMinute * this.tickSeconds()) / 60;
+      if (!Number.isFinite(tickAmount) || tickAmount <= 0) return;
+
+      // Respect the lifetime cap when one is configured.
+      let amount = tickAmount;
+      if (runtime.unlockPrice > 0) {
+        const remaining = runtime.unlockPrice - runtime.totalCharged;
+        if (remaining <= 0) {
+          await this.endSession(runtime.sessionId, runtime.userId, false, "cap_reached");
+          return;
+        }
+        amount = Math.min(amount, remaining);
+      }
+
+      const balance = await LedgerService.getLearnerBalance(
+        runtime.userId,
+        runtime.currency
+      );
+      if (balance < amount) {
+        await this.endSession(
+          runtime.sessionId,
+          runtime.userId,
+          false,
+          "insufficient_balance"
+        );
+        return;
+      }
+
+      runtime.tickIndex += 1;
+      const charge = await LedgerService.postCharge({
+        sessionId: runtime.sessionId,
+        tickIndex: runtime.tickIndex,
+        gross: amount,
+        learnerId: runtime.userId,
+        creatorId: runtime.instructorId,
+        currency: runtime.currency,
+      });
+      runtime.totalCharged = Number(
+        (runtime.totalCharged + charge.gross).toFixed(6)
+      );
+
+      await prisma.paymentSession.update({
+        where: { id: runtime.sessionId },
+        data: { totalPaid: { increment: charge.gross } },
+      });
+
+      const [learnerBalance, creatorBalance] = await Promise.all([
+        LedgerService.getLearnerBalance(runtime.userId, runtime.currency),
+        LedgerService.getCreatorBalance(runtime.instructorId, runtime.currency),
+      ]);
+
+      const payload = {
+        amountPaid: charge.gross,
+        creatorEarnings: charge.creatorAmount,
+        platformFee: charge.platformAmount,
+        currency: runtime.currency,
+        balance: learnerBalance,
+        creatorBalance,
+        totalPaid: runtime.totalCharged,
+        tickIndex: runtime.tickIndex,
+        state: "paying",
+      };
+
+      SocketService.emitTick(runtime.sessionId, payload, runtime.instructorId);
+      SocketService.emitWalletUpdated(runtime.userId, {
+        learnerBalance,
+        creatorBalance: 0,
+        currency: runtime.currency,
+      });
+      SocketService.emitWalletUpdated(runtime.instructorId, {
+        learnerBalance: 0,
+        creatorBalance,
+        currency: runtime.currency,
+      });
+    } catch (error) {
+      logger.error(`[PaymentSession] Tick failed for ${runtime.sessionId}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      runtime.locked = false;
+    }
+  }
+
+  private static stopRuntime(runtime: SessionRuntime) {
+    if (runtime.timer) clearInterval(runtime.timer);
+    runtime.timer = null;
+    activeSessions.delete(runtime.sessionId);
+  }
+
+  static async pauseSession(
+    sessionId: string,
+    userId: string,
+    isAdmin = false
+  ): Promise<SessionSummary> {
+    const runtime = activeSessions.get(sessionId);
+    if (!runtime) throw new AppError("Session is not active", 400);
+    if (!isAdmin && runtime.userId !== userId) {
+      throw new AppError("You do not own this session", 403);
+    }
+    runtime.paused = true;
+    SocketService.emitTick(sessionId, { state: "paused", totalPaid: runtime.totalCharged }, runtime.instructorId);
+    return this.getSession(sessionId);
+  }
+
+  static async resumeSession(
+    sessionId: string,
+    userId: string,
+    isAdmin = false
+  ): Promise<SessionSummary> {
+    const runtime = activeSessions.get(sessionId);
+    if (!runtime) throw new AppError("Session is not active", 400);
+    if (!isAdmin && runtime.userId !== userId) {
+      throw new AppError("You do not own this session", 403);
+    }
+    runtime.paused = false;
+    SocketService.emitTick(sessionId, { state: "paying", totalPaid: runtime.totalCharged }, runtime.instructorId);
+    return this.getSession(sessionId);
+  }
+
   /**
-   * Ends a session cleanly — called by the student clicking "Stop" or tab close.
-   *
-   * All ILP work is done atomically here at session end:
-   *   1. Minimum threshold guard — skip ILP for negligible amounts
-   *   2. Execute ILP payment (incoming → quote → outgoing) as one unit
-   *   3. Record Transaction + Payout in DB only if ILP succeeded
-   *   4. Mark session ENDED
-   *
-   * This prevents orphaned "pending" incoming payments on the teacher wallet
-   * that would occur if ILP was initiated at session start but failed before end.
+   * Ends a session. The server computes the total; any client-supplied amount
+   * is ignored. Settles the gross total, then records Transaction + Payout.
    */
-  static async endSession(sessionId: string, totalAmount: number): Promise<SessionSummary> {
-    activeSessions.delete(sessionId);
+  static async endSession(
+    sessionId: string,
+    userId: string,
+    isAdmin = false,
+    reason = "ended"
+  ): Promise<SessionSummary> {
+    const runtime = activeSessions.get(sessionId);
+    if (runtime) this.stopRuntime(runtime);
 
     const session = await prisma.paymentSession.findUnique({
       where: { id: sessionId },
-      include: { course: true, user: true }
+      include: {
+        course: {
+          include: {
+            instructor: { include: { wallet: true } },
+          },
+        },
+        user: true,
+      },
     });
 
-    if (!session || session.status !== 'ACTIVE') {
-      throw new AppError('Session not found or already ended', 400);
+    if (!session) throw new AppError("Session not found", 404);
+    if (!isAdmin && session.userId !== userId) {
+      throw new AppError("You do not own this session", 403);
+    }
+    if (session.status !== "ACTIVE") {
+      throw new AppError("Session already ended", 400);
     }
 
-    // ── Fix 3: Minimum charge threshold ──────────────────────────────────────
-    // Payments below this amount are not worth hitting the ILP network for.
-    // The session is still cleanly ENDED — the student just doesn't get charged.
-    const MIN_CHARGE_USD = 0.001;
+    const gross = runtime
+      ? runtime.totalCharged
+      : Number(session.totalPaid);
 
-    if (totalAmount <= 0 || totalAmount < MIN_CHARGE_USD) {
-      logger.info(`[PaymentSession] Session ${sessionId} below minimum threshold ($${MIN_CHARGE_USD}). Ending without payment.`);
-
+    // Nothing worth settling.
+    if (gross < MIN_CHARGE_USD) {
       const now = new Date();
-      const updatedSession = await prisma.paymentSession.update({
+      const updated = await prisma.paymentSession.update({
         where: { id: sessionId },
-        data:  { status: 'ENDED', endedAt: now, totalPaid: 0 },
+        data: { status: "ENDED", endedAt: now, totalPaid: 0 },
       });
-
-      const summary: SessionSummary = {
-        sessionId,
-        status:    'ENDED',
-        totalPaid: 0,
-        currency:  RafikiConfig.assetCode,
-        startedAt: updatedSession.startedAt,
-        endedAt:   now,
-        tickCount: 0,
-      };
-
+      const summary = this.toSummary(updated, runtime?.tickIndex ?? 0);
       SocketService.emitSessionEnded(sessionId, summary, session.course.instructorId);
       return summary;
     }
 
-    // ── Atomic ILP execution + DB recording ───────────────────────────────────
-    let ilpResult: any;
+    const mode = env.SETTLEMENT_MODE ?? "ilp";
+    let ilpRef: string | null = null;
     try {
-      // All 3 ILP steps happen inside executeTickPayment — if any fails, we
-      // never reach the DB recording block, so no orphaned records are created.
-      ilpResult = await RafikiService.executeTickPayment(totalAmount);
+      if (mode === "ilp") {
+        const result = await RafikiService.settleGross(gross);
+        ilpRef = result.outgoingPaymentId;
 
-      // ILP succeeded — record Transaction and Payout atomically
-      const platformFee = parseFloat((totalAmount * 0.1).toFixed(9));  // 10% platform cut
-      const netAmount   = parseFloat((totalAmount - platformFee).toFixed(9));
-
-      await prisma.$transaction(async (tx) => {
-        const transaction = await tx.transaction.create({
-          data: {
-            sessionId,
-            amount:       totalAmount,
-            platformFee,
-            netAmount,
-            currency:     RafikiConfig.assetCode,
-            ilpPacketRef: ilpResult.outgoingPaymentId,
-            tickIndex:    1,
-          },
-        });
-
-        await tx.payout.create({
-          data: {
-            transactionId:    transaction.id,
-            instructorWallet: process.env.TEACHER_WALLET_ADDRESS!,
-            amount:           netAmount,
-            currency:         RafikiConfig.assetCode,
-            status:           'SUCCESS',
-            ilpPacketRef:     ilpResult.outgoingPaymentId,
-          },
-        });
-
-        await tx.paymentSession.update({
-          where: { id: sessionId },
-          data:  { totalPaid: { increment: totalAmount } },
-        });
-      });
-
-    } catch (ilpError: any) {
-      logger.error(
-        `[PaymentSession] ✗ Final payment FAILED for session ${sessionId}.`,
-        { error: ilpError?.message }
-      );
-
-      if (ilpError?.description === 'Inactive Token' || ilpError?.status === 403) {
-        logger.error(
-          '🔑 ILP Token expired. ' +
-          'Re-run: npx ts-node --transpile-only src/scripts/authorize-master-wallet.ts'
+        // Poll until the testnet reports a terminal state (bounded).
+        const deadline = Date.now() + SETTLEMENT_TIMEOUT_MS;
+        let status = result.status;
+        let currentId = result.outgoingPaymentId;
+        while (
+          status !== "COMPLETED" &&
+          status !== "FAILED" &&
+          Date.now() < deadline
+        ) {
+          await sleep(SETTLEMENT_POLL_MS);
+          const payment = await RafikiService.getOutgoingPayment(currentId);
+          status = payment.status;
+          currentId = payment.id;
+        }
+        if (status === "FAILED") {
+          throw new Error("Outgoing payment failed");
+        }
+        if (status !== "COMPLETED") {
+          logger.warn(
+            `[PaymentSession] Settlement ${ilpRef} still ${status}; treating as accepted for demo.`
+          );
+        }
+      } else {
+        logger.info(
+          `[PaymentSession] Simulated settlement for ${sessionId}: $${gross.toFixed(6)}`
         );
       }
-
-      // Mark FAILED so the session is not left dangling as ACTIVE
+    } catch (settlementError) {
+      logger.error(
+        `[PaymentSession] Settlement failed for ${sessionId}; reversing ledger charges.`,
+        {
+          error:
+            settlementError instanceof Error
+              ? settlementError.message
+              : String(settlementError),
+        }
+      );
+      await LedgerService.reverseSessionCharges(sessionId).catch(() => undefined);
       await prisma.paymentSession.update({
         where: { id: sessionId },
-        data:  { status: 'FAILED' },
+        data: { status: "FAILED", endedAt: new Date(), totalPaid: 0 },
       });
-
-      SocketService.emitSessionKilled(sessionId, 'ILP payment failed');
-      throw ilpError;
+      SocketService.emitSessionKilled(sessionId, "ILP settlement failed");
+      throw settlementError;
     }
 
-    // ── Mark session complete ─────────────────────────────────────────────────
+    const creatorShare = LedgerService.creatorShare;
+    const platformFee = Number((gross * (1 - creatorShare)).toFixed(6));
+    const netAmount = Number((gross * creatorShare).toFixed(6));
+    const instructorWallet =
+      session.course.instructor.wallet?.walletAddress ??
+      process.env.PLATFORM_WALLET_ADDRESS ??
+      process.env.TEACHER_WALLET_ADDRESS ??
+      "";
+
     const now = new Date();
-    const updatedSession = await prisma.paymentSession.update({
-      where: { id: sessionId },
-      data:  { status: 'ENDED', endedAt: now },
+    await prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.create({
+        data: {
+          sessionId,
+          amount: gross,
+          platformFee,
+          netAmount,
+          currency: session.course.currency || "USD",
+          ilpPacketRef: ilpRef,
+          tickIndex: Math.max(1, runtime?.tickIndex ?? 1),
+        },
+      });
+
+      await tx.payout.create({
+        data: {
+          transactionId: transaction.id,
+          instructorWallet,
+          amount: netAmount,
+          currency: session.course.currency || "USD",
+          status: "SUCCESS",
+          ilpPacketRef: ilpRef,
+        },
+      });
+
+      await tx.paymentSession.update({
+        where: { id: sessionId },
+        data: { status: "ENDED", endedAt: now, totalPaid: gross },
+      });
     });
 
-    logger.info(`[PaymentSession] ■ Session ${sessionId} ENDED. $${Number(updatedSession.totalPaid).toFixed(6)} total paid.`);
-
-    const summary: SessionSummary = {
-      sessionId,
-      status:    'ENDED',
-      totalPaid: Number(updatedSession.totalPaid),
-      currency:  RafikiConfig.assetCode,
-      startedAt: updatedSession.startedAt,
-      endedAt:   now,
-      tickCount: 1,
-    };
-
+    const updated = await prisma.paymentSession.findUniqueOrThrow({
+      where: { id: sessionId },
+    });
+    const summary = this.toSummary(updated, runtime?.tickIndex ?? 0);
+    logger.info(
+      `[PaymentSession] ■ Session ${sessionId} ${reason}. $${gross.toFixed(6)} settled.`
+    );
     SocketService.emitSessionEnded(sessionId, summary, session.course.instructorId);
     return summary;
   }
 
-  /**
-   * Returns recent completed sessions for an instructor's courses
-   */
-  static async getInstructorSessions(instructorId: string, limit: number = 10) {
+  static async getInstructorSessions(instructorId: string, limit = 10) {
     const sessions = await prisma.paymentSession.findMany({
-      where: {
-        course: { instructorId },
-        status: 'ENDED'
-      },
+      where: { course: { instructorId }, status: "ENDED" },
       include: {
         user: { select: { firstName: true, lastName: true } },
         course: { select: { title: true, pricePerMinute: true } },
-        lesson: { select: { title: true } }
+        lesson: { select: { title: true } },
       },
-      orderBy: { endedAt: 'desc' },
-      take: limit
+      orderBy: { endedAt: "desc" },
+      take: limit,
     });
-    
-    return sessions.map(s => {
-      const studentName = s.user ? `${s.user.firstName} ${s.user.lastName ? s.user.lastName[0] + '.' : ''}`.trim() : 'Anonymous Student';
+
+    return sessions.map((s) => {
+      const studentName = s.user
+        ? `${s.user.firstName} ${
+            s.user.lastName ? s.user.lastName[0] + "." : ""
+          }`.trim()
+        : "Anonymous Student";
+      const totalPaid = Number(s.totalPaid);
       return {
         id: s.id,
         studentName,
         courseTitle: s.course.title,
-        lessonTitle: s.lesson?.title || 'General Lesson',
-        totalPaid: Number(s.totalPaid),
-        durationSec: (Number(s.totalPaid) / (Number(s.course.pricePerMinute) || 1)) * 60,
-        creatorEarnings: Number(s.totalPaid) * 0.8,
-        endedAt: s.endedAt
+        lessonTitle: s.lesson?.title || "General Lesson",
+        totalPaid,
+        durationSec:
+          (totalPaid / (Number(s.course.pricePerMinute) || 1)) * 60,
+        creatorEarnings: Number((totalPaid * LedgerService.creatorShare).toFixed(6)),
+        endedAt: s.endedAt,
       };
     });
   }
 
-  /**
-   * Returns current session status — used by polling or admin dashboard.
-   */
   static async getSession(sessionId: string): Promise<SessionSummary> {
     const session = await prisma.paymentSession.findUniqueOrThrow({
       where: { id: sessionId },
     });
-
-    return {
-      sessionId,
-      status:    session.status,
-      totalPaid: Number(session.totalPaid),
-      currency:  RafikiConfig.assetCode,
-      startedAt: session.startedAt,
-      endedAt:   session.endedAt ?? null,
-      tickCount: 0,
-    };
+    const runtime = activeSessions.get(sessionId);
+    return this.toSummary(session, runtime?.tickIndex ?? 0);
   }
 
-  /**
-   * Returns all currently ACTIVE session IDs (for admin dashboard).
-   */
   static getActiveSessionIds(): string[] {
-    return Array.from(activeSessions);
+    return Array.from(activeSessions.keys());
   }
 
-  /**
-   * Force-kills a session — called by the kill switch endpoint (Phase 5) or on ILP failure.
-   */
-  static async killSession(sessionId: string): Promise<SessionSummary> {
-    return PaymentSessionService._killSession(sessionId, 'Admin kill switch');
-  }
-
-  /**
-   * Internal kill implementation — used by both ILP failure and kill switch.
-   */
-  static async _killSession(sessionId: string, reason: string): Promise<SessionSummary> {
-    activeSessions.delete(sessionId);
+  static async killSession(
+    sessionId: string,
+    userId: string,
+    isAdmin = false
+  ): Promise<SessionSummary> {
+    const runtime = activeSessions.get(sessionId);
+    if (runtime) {
+      if (!isAdmin && runtime.userId !== userId) {
+        throw new AppError("You do not own this session", 403);
+      }
+      this.stopRuntime(runtime);
+    }
 
     const now = new Date();
     const session = await prisma.paymentSession.update({
       where: { id: sessionId },
-      data:  { status: 'KILLED', endedAt: now, killSwitchAt: now },
+      data: { status: "KILLED", endedAt: now, killSwitchAt: now },
     });
+    logger.info(`[PaymentSession] ✗ Session ${sessionId} KILLED`);
+    SocketService.emitSessionKilled(sessionId, "Kill switch");
+    return this.toSummary(session, runtime?.tickIndex ?? 0);
+  }
 
-    logger.info(`[PaymentSession] ✗ Session ${sessionId} KILLED. Reason: ${reason}.`);
-
-    SocketService.emitSessionKilled(sessionId, reason);
-
+  private static toSummary(
+    session: {
+      id: string;
+      status: string;
+      totalPaid: unknown;
+      startedAt: Date;
+      endedAt: Date | null;
+    },
+    tickCount: number
+  ): SessionSummary {
     return {
-      sessionId,
-      status:    'KILLED',
+      sessionId: session.id,
+      status: session.status,
       totalPaid: Number(session.totalPaid),
-      currency:  RafikiConfig.assetCode,
+      currency: "USD",
       startedAt: session.startedAt,
-      endedAt:   now,
-      tickCount: 0,
+      endedAt: session.endedAt ?? null,
+      tickCount,
     };
   }
 }

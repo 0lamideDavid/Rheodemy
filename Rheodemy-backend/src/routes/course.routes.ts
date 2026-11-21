@@ -19,12 +19,35 @@ const router = Router();
  */
 
 router.get("/", (req, res, next) => courseController.getAllCourses(req, res, next));
-router.get("/:id", (req, res, next) => courseController.getCourseById(req, res, next));
-router.get("/:id/lessons", (req, res, next) => courseController.getLessons(req, res, next));
+
+// ── Authenticated Specific Routes (must precede /:id) ──────────────────────
+router.get("/in-progress", authenticate, (req, res, next) =>
+  courseController.getInProgress(req, res, next)
+);
+
+router.get("/saved", authenticate, (req, res, next) =>
+  courseController.getBookmarks(req, res, next)
+);
+
+router.get("/instructor/stats", authenticate, authorize("INSTRUCTOR", "ADMIN"), (req, res, next) =>
+  courseController.getInstructorStats(req, res, next)
+);
 
 router.get("/me/instructor", authenticate, authorize("INSTRUCTOR"), (req, res, next) =>
   courseController.getMyInstructorCourses(req, res, next)
 );
+
+router.post("/:id/progress", authenticate, (req, res, next) =>
+  courseController.updateProgress(req, res, next)
+);
+
+router.post("/:id/save", authenticate, (req, res, next) =>
+  courseController.toggleBookmark(req, res, next)
+);
+
+// ── Course by ID Routes ─────────────────────────────────────────────────────
+router.get("/:id", (req, res, next) => courseController.getCourseById(req, res, next));
+router.get("/:id/lessons", (req, res, next) => courseController.getLessons(req, res, next));
 
 router.post("/", authenticate, authorize("INSTRUCTOR"), (req, res, next) =>
   courseController.createCourse(req, res, next)

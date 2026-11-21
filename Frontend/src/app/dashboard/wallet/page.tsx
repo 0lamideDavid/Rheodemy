@@ -136,7 +136,7 @@ export default function WalletPage() {
               </div>
 
               <div>
-                <span className="text-xs font-mono text-muted uppercase block">Unwithdrawn Earnings (80% Cut)</span>
+                <span className="text-xs font-mono text-muted uppercase block">Unwithdrawn Earnings (50% Cut)</span>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-forest mt-1">
                   ₦28,450.00
                 </p>
@@ -168,7 +168,7 @@ export default function WalletPage() {
                 Monetize your knowledge by the second
               </h3>
               <p className="text-xs sm:text-sm text-muted leading-relaxed">
-                Educators on Rheodemy receive 80% direct royalty splits in real time. Withdraw instantly to African Mobile Money (MTN MoMo, M-Pesa).
+                Educators on Rheodemy receive 50% direct royalty splits in real time. Withdraw instantly to African Mobile Money (MTN MoMo, M-Pesa).
               </p>
             </div>
 

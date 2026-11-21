@@ -91,7 +91,10 @@ async function ensureDefaultUsers() {
       await prisma.wallet.create({
         data: {
           userId: instructor.id,
-          walletAddress: "https://rafiki.example.com/instructor",
+          walletAddress:
+            process.env.PLATFORM_WALLET_ADDRESS ??
+            process.env.TEACHER_WALLET_ADDRESS ??
+            "https://ilp.interledger-test.dev/olamide",
           provider: "rafiki",
           currency: "USD",
         },
@@ -115,7 +118,9 @@ async function ensureDefaultUsers() {
       await prisma.wallet.create({
         data: {
           userId: student.id,
-          walletAddress: "https://rafiki.example.com/student",
+          walletAddress:
+            process.env.STUDENT_WALLET_ADDRESS ??
+            "https://ilp.interledger-test.dev/rheodemy",
           provider: "rafiki",
           currency: "USD",
         },
@@ -127,15 +132,10 @@ async function ensureDefaultUsers() {
     const oldCourseCount = await prisma.course.count({
       where: { instructorId: instructor.id }
     });
-    // Force reseed if any old courses exist or create them if none exist
-    if (oldCourseCount >= 0) {
-      logger.info("🗑️ Seeding instructor courses (wiping old mock courses if any)...");
-      await prisma.payout.deleteMany({ where: { transaction: { session: { course: { instructorId: instructor.id } } } } });
-      await prisma.transaction.deleteMany({ where: { session: { course: { instructorId: instructor.id } } } });
-      await prisma.paymentSession.deleteMany({ where: { course: { instructorId: instructor.id } } });
-      await prisma.enrollment.deleteMany({ where: { course: { instructorId: instructor.id } } });
-      await prisma.lesson.deleteMany({ where: { course: { instructorId: instructor.id } } });
-      await prisma.course.deleteMany({ where: { instructorId: instructor.id } });
+    // Seed demo courses once. Never delete existing courses or payment data —
+    // doing so on every boot wipes ledger history and breaks live demos.
+    if (oldCourseCount === 0) {
+      logger.info("🌱 Seeding instructor courses (first run only)...");
 
       // Apply update to any lingering old lessons (as requested)
       await prisma.lesson.updateMany({

@@ -81,6 +81,31 @@ export interface InstructorSession {
   endedAt: string;
 }
 
+export interface InProgressData {
+  continueCourse: any;
+  inProgress: any[];
+  unlocked: any[];
+  saved: any[];
+  completed: any[];
+  allProgress: any[];
+}
+
+export interface InstructorStats {
+  totalRevenue: number;
+  activeLearners: number;
+  totalMinutesStreamed: number;
+  totalCourses: number;
+}
+
+export interface FeedbackItem {
+  id: string;
+  rating: number;
+  category: string;
+  comment: string;
+  createdAt: string;
+  user?: { firstName: string; lastName: string };
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -183,6 +208,28 @@ export const api = {
     get: (id: string) => apiFetch<Course>(`/api/courses/${id}`),
     lessons: (id: string) => apiFetch<Lesson[]>(`/api/courses/${id}/lessons`),
     mine: () => apiFetch<Course[]>("/api/courses/me/instructor"),
+    inProgress: () => apiFetch<InProgressData>("/api/courses/in-progress"),
+    updateProgress: (
+      courseId: string,
+      data: {
+        lessonId?: string;
+        lastPosition?: string;
+        lastSeconds?: number;
+        minutesLearned?: number;
+        completed?: boolean;
+      }
+    ) =>
+      apiFetch<any>(`/api/courses/${courseId}/progress`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    toggleSave: (courseId: string) =>
+      apiFetch<{ saved: boolean }>(`/api/courses/${courseId}/save`, {
+        method: "POST",
+      }),
+    saved: () => apiFetch<Course[]>("/api/courses/saved"),
+    instructorStats: () =>
+      apiFetch<InstructorStats>("/api/courses/instructor/stats"),
     create: (input: {
       title: string;
       description: string;
@@ -208,6 +255,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(input),
       }),
+  },
+  feedback: {
+    submit: (data: { rating: number; category?: string; comment: string }) =>
+      apiFetch<FeedbackItem>("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    recent: (limit = 10) =>
+      apiFetch<FeedbackItem[]>(`/api/feedback/recent?limit=${limit}`),
   },
   enrollments: {
     mine: () => apiFetch<unknown[]>("/api/enrollments/me"),
