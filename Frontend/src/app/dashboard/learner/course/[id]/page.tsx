@@ -31,6 +31,10 @@ import { StatusDot, PaymentState } from "@/components/ui/StatusDot";
 import { WalletPill } from "@/components/ui/WalletPill";
 import { VerifiedStamp } from "@/components/ui/VerifiedStamp";
 import { LaurieAdvisor } from "@/components/ui/LaurieAdvisor";
+import MuxPlayer from "@mux/mux-player-react/lazy";
+import { api, type Lesson } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
+import { formatUSD, toNumber } from "@/lib/currency";
 
 interface ModuleData {
   id: number;
@@ -353,12 +357,16 @@ export default function CoursePlayerPage() {
   const { t } = useLanguage();
   const id = (params?.id as string) || "ts-arch";
 
-  const course: CourseRecord =
-    COURSES_DATABASE[id] || COURSES_DATABASE["ts-arch"];
+  const [course, setCourse] = useState<CourseRecord>(
+    COURSES_DATABASE[id] || COURSES_DATABASE["ts-arch"]
+  );
+  const [realLessons, setRealLessons] = useState<Lesson[]>([]);
 
   // Active module selection
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const activeModule = course.modules[activeModuleIndex] || course.modules[0];
+  const activeContentUrl = realLessons[activeModuleIndex]?.contentUrl || "";
+  const isMuxPlayback = !!activeContentUrl && !activeContentUrl.startsWith("http");
 
   // Media playback & player states
   const containerRef = useRef<HTMLDivElement>(null);
@@ -377,8 +385,153 @@ export default function CoursePlayerPage() {
 
   // Metering & Wallet states
   const [spend, setSpend] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<number>(INITIAL_WALLET_BALANCE);
   const [playerState, setPlayerState] = useState<PaymentState>("free_preview");
   const [showLiveMeter, setShowLiveMeter] = useState(true);
+
+  // Server-authoritative session
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionStartingRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [fetched, balance] = await Promise.all([
+          api.courses.get(id),
+          api.wallet.balance().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (balance) setWalletBalance(balance.learnerBalance);
+
+        const lessons = fetched.lessons ?? [];
+        setRealLessons(lessons);
+        const firstType = lessons[0]?.contentType;
+        const type: CourseRecord["type"] =
+          firstType === "AUDIO" ? "audio" : firstType === "EBOOK" ? "ebook" : "video";
+        const unlockCap = toNumber(fetched.unlockPrice ?? 10);
+        const ratePerMin = toNumber(fetched.pricePerMinute);
+        const mapped: CourseRecord = {
+          id: fetched.id,
+          title: fetched.title,
+          instructor: {
+            name: fetched.instructor
+              ? `${fetched.instructor.firstName} ${fetched.instructor.lastName}`.trim()
+              : "Rheodemy Instructor",
+            verified: true,
+            role: "Verified Educator",
+          },
+          type,
+          category: "Tech",
+          ratePerMin,
+          unlockCap,
+          rateDisplay: `${formatUSD(ratePerMin)} / min`,
+          unlockDisplay: `${formatUSD(unlockCap)} unlock`,
+          available: true,
+          coverImage:
+            fetched.thumbnailUrl ||
+            "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1200&auto=format&fit=crop",
+          description: fetched.description,
+          modules: lessons.map((l, idx) => ({
+            id: idx + 1,
+            title: l.title,
+            duration:
+              type === "ebook"
+                ? "Reading"
+                : `${Math.max(1, Math.round((l.durationSec ?? 0) / 60))}:00`,
+            summary: l.description ?? undefined,
+          })),
+        };
+        setCourse(mapped);
+        if (mapped.type === "ebook") setIsPlaying(true);
+      } catch {
+        // Keep mock fallback for demo resilience.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const endSessionRef = useRef(false);
+
+  const ensureSession = async () => {
+    if (sessionIdRef.current || sessionStartingRef.current) return;
+    sessionStartingRef.current = true;
+    try {
+      const lesson = realLessons[activeModuleIndex];
+      const { sessionId } = await api.sessions.start(id, lesson?.id);
+      sessionIdRef.current = sessionId;
+      getSocket()?.emit("join:session", sessionId);
+    } catch {
+      // Session start failure shouldn't crash the player.
+    } finally {
+      sessionStartingRef.current = false;
+    }
+  };
+
+  const pauseServerSession = async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try { await api.sessions.pause(sid); } catch {}
+  };
+
+  const resumeServerSession = async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try { await api.sessions.resume(sid); } catch {}
+  };
+
+  const endServerSession = async () => {
+    const sid = sessionIdRef.current;
+    if (!sid || endSessionRef.current) return;
+    endSessionRef.current = true;
+    try { await api.sessions.end(sid); } catch {}
+    sessionIdRef.current = null;
+  };
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onTick = (p: {
+      totalPaid?: number;
+      balance?: number;
+      state?: string;
+    }) => {
+      if (typeof p.totalPaid === "number") setSpend(p.totalPaid);
+      if (typeof p.balance === "number") setWalletBalance(p.balance);
+      if (p.state === "paying") setPlayerState("paying");
+      if (p.state === "paused") setPlayerState("paused");
+    };
+    const onEnded = () => {
+      sessionIdRef.current = null;
+      setPlayerState("paused");
+    };
+    const onWallet = (p: { learnerBalance?: number }) => {
+      if (typeof p.learnerBalance === "number") setWalletBalance(p.learnerBalance);
+    };
+    socket.on("payment:tick", onTick);
+    socket.on("session:ended", onEnded);
+    socket.on("wallet:updated", onWallet);
+    return () => {
+      socket.off("payment:tick", onTick);
+      socket.off("session:ended", onEnded);
+      socket.off("wallet:updated", onWallet);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!course.available) return;
+    if (isPlaying) {
+      void (async () => { await ensureSession(); await resumeServerSession(); })();
+    } else {
+      void pauseServerSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, course.available, activeModuleIndex]);
+
+  useEffect(() => {
+    return () => { void endServerSession(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Audio waveform animation state
   const [audioBarHeights, setAudioBarHeights] = useState<number[]>(
@@ -454,7 +607,7 @@ export default function CoursePlayerPage() {
     }
   };
 
-  const currentWalletBalance = Math.max(0, INITIAL_WALLET_BALANCE - spend);
+  const currentWalletBalance = Math.max(0, walletBalance - spend);
 
   const formatMinutesUsed = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -770,113 +923,37 @@ export default function CoursePlayerPage() {
   // -------------------------------------------------------------
   // Ebook Content Data
   // -------------------------------------------------------------
-  const ebookPages = [
-    (
-      <article key="p1" className="space-y-6">
-        <header className="border-b border-rule pb-6 mb-6">
-          <span className="text-xs uppercase font-mono tracking-widest text-forest font-bold">
-            Chapter 1 • Foundation Systems
-          </span>
-          <h1 className={`font-serif font-bold text-ink mt-2 leading-tight ${fontSizes.h1}`}>
-            {course.title}
-          </h1>
-          <div className="flex items-center gap-3 text-xs text-muted mt-3">
-            <span>By {course.instructor.name}</span>
-            <span>•</span>
-            <span>{course.instructor.role}</span>
-            <span>•</span>
-            <span className="font-mono text-ink">IFRS & Interledger Certified</span>
-          </div>
-        </header>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          Welcome to the interactive text edition. On Rheodemy, reading is billed strictly by the second using open Interledger payment channels. You never commit to an expensive subscription or upfront textbook purchase. You only pay for what you digest.
-        </p>
-
-        <div className="p-6 bg-surface border-l-4 border-forest rounded-r-lg my-6 shadow-xs">
-          <h4 className="font-serif font-bold text-ink text-base mb-1">
-            The Rheodemy Slow Reader Guarantee
-          </h4>
-          <p className={`font-serif italic text-ink/85 leading-relaxed ${fontSizes.quote}`}>
-            &ldquo;Education must never penalize thoughtful contemplation. If you step away from your screen or pause to take physical notes for 15 seconds, the payment meter stops instantly. Furthermore, each page is strictly capped at 45 billable seconds (₦2.25 max). Once reached, the page remains free to study forever.&rdquo;
-          </p>
-        </div>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          In this module, we will explore offline-first design heuristics, transactional caching across intermittent 2G/3G connections, and how to verify cryptographic signatures on mobile client wallets.
+  const ebookSource =
+    realLessons[activeModuleIndex]?.contentUrl?.replace(/\\n/g, "\n") ||
+    course.description ||
+    "";
+  const ebookChunks = ebookSource
+    .split(/\n\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ebookPages =
+    (ebookChunks.length > 0 ? ebookChunks : [course.description]).map((chunk, i) => (
+      <article key={`p${i}`} className="space-y-6">
+        {i === 0 && (
+          <header className="border-b border-rule pb-6 mb-6">
+            <span className="text-xs uppercase font-mono tracking-widest text-forest font-bold">
+              Chapter {activeModuleIndex + 1} • {activeModule?.title || "Reading"}
+            </span>
+            <h1 className={`font-serif font-bold text-ink mt-2 leading-tight ${fontSizes.h1}`}>
+              {course.title}
+            </h1>
+            <div className="flex items-center gap-3 text-xs text-muted mt-3">
+              <span>By {course.instructor.name}</span>
+              <span>•</span>
+              <span>{course.instructor.role}</span>
+            </div>
+          </header>
+        )}
+        <p className={`leading-relaxed font-serif text-ink/90 whitespace-pre-wrap ${fontSizes.body}`}>
+          {chunk}
         </p>
       </article>
-    ),
-    (
-      <article key="p2" className="space-y-6">
-        <header className="border-b border-rule pb-6 mb-6">
-          <span className="text-xs uppercase font-mono tracking-widest text-forest font-bold">
-            Chapter 2 • Low-Bandwidth Interface Density
-          </span>
-          <h2 className={`font-serif font-bold text-ink mt-2 ${fontSizes.h2}`}>
-            Typography, Scarcity & Visual Grids
-          </h2>
-        </header>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          In emerging market contexts, latency is not simply a technical metric—it is an economic cost. When a learner pays per megabyte on prepaid cellular data, bloated web assets directly cannibalize their learning budget.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
-          <div className="ledger-card p-4 bg-surface">
-            <h5 className={`font-bold uppercase tracking-wider text-forest font-mono ${fontSizes.cardTitle}`}>
-              Pattern A: Zero-Asset UI
-            </h5>
-            <p className={`text-muted mt-1 leading-relaxed ${fontSizes.cardText}`}>
-              Use native system fonts, SVG vectors, and CSS grids. Eliminate multi-megabyte heavy web font files to guarantee sub-second initial paint times.
-            </p>
-          </div>
-          <div className="ledger-card p-4 bg-surface">
-            <h5 className={`font-bold uppercase tracking-wider text-forest font-mono ${fontSizes.cardTitle}`}>
-              Pattern B: Optimistic Ledger
-            </h5>
-            <p className={`text-muted mt-1 leading-relaxed ${fontSizes.cardText}`}>
-              Record student interactions and lesson checkpoints into local IndexedDB queues, syncing with the Interledger node only when a network handshake succeeds.
-            </p>
-          </div>
-        </div>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          Notice how the payment meter in the corner stays quiet. You are reading comfortably without flashing alerts or distracting countdown tickers.
-        </p>
-      </article>
-    ),
-    (
-      <article key="p3" className="space-y-6">
-        <header className="border-b border-rule pb-6 mb-6">
-          <span className="text-xs uppercase font-mono tracking-widest text-forest font-bold">
-            Chapter 3 • Trust Affordances & Settlement
-          </span>
-          <h2 className={`font-serif font-bold text-ink mt-2 ${fontSizes.h2}`}>
-            Micro-Escrow & Creator Splits
-          </h2>
-        </header>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          Every second you stream this book, micro-kobo fractions are dynamically routed through Interledger: 50% directly into the creator&apos;s verified bank account, 45% to maintain node infrastructure, and 5% directly into the regional bursary reserve for underrepresented students.
-        </p>
-
-        <p className={`leading-relaxed font-serif text-ink/90 ${fontSizes.body}`}>
-          When your cumulative spend reaches the course unlock ceiling of {course.unlockDisplay}, you graduate to full lifetime access. The course is permanently added to your library with zero recurring fees.
-        </p>
-
-        <div className="p-6 bg-forest/10 border border-forest/30 rounded-lg text-center space-y-2 mt-8">
-          <CheckCircle2 className="w-8 h-8 text-forest mx-auto" />
-          <h4 className="font-serif font-bold text-ink text-lg">
-            Module 1 Completed
-          </h4>
-          <p className="text-xs text-muted max-w-md mx-auto">
-            You can advance to Module 2 from the sidebar or re-read this chapter at any time for ₦0.
-          </p>
-        </div>
-      </article>
-    )
-  ];
+    ));
 
   // -------------------------------------------------------------
   // Pre-Release Interactive Actions
@@ -1085,11 +1162,8 @@ export default function CoursePlayerPage() {
         <div className="flex items-center gap-3">
           <div className="hidden sm:block">
             <WalletPill
-              cashBalance={`₦${currentWalletBalance.toLocaleString("en-NG", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-              })}`}
-              minutesEquivalent={`~${Math.floor(currentWalletBalance / course.ratePerMin)} min`}
+              cashBalance={formatUSD(currentWalletBalance)}
+              minutesEquivalent={`~${Math.floor(currentWalletBalance / (course.ratePerMin || 1))} min`}
             />
           </div>
         </div>
@@ -1109,27 +1183,50 @@ export default function CoursePlayerPage() {
               ref={containerRef}
               className="w-full aspect-video bg-[#0E1513] relative group overflow-hidden select-none"
             >
-              <video
-                ref={videoRef}
-                src="/videos/sample.mp4"
-                playsInline
-                preload="metadata"
-                onTimeUpdate={handleMediaTimeUpdate}
-                onEnded={() => setIsPlaying(false)}
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={togglePlay}
-              />
+              {(() => {
+                const lesson = realLessons[activeModuleIndex];
+                const src = lesson?.contentUrl || "/videos/sample.mp4";
+                const muxPlaybackId =
+                  src && !src.startsWith("http") ? src : null;
+                if (muxPlaybackId) {
+                  return (
+                    <MuxPlayer
+                      playbackId={muxPlaybackId}
+                      accentColor="#1B4D3E"
+                      className="w-full h-full"
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onTimeUpdate={(e) => {
+                        const t = (e.target as HTMLVideoElement).currentTime;
+                        const d = (e.target as HTMLVideoElement).duration;
+                        if (Number.isFinite(d) && d > 0) setDuration(d);
+                        setCurrentTime(t);
+                      }}
+                      onEnded={() => setIsPlaying(false)}
+                    />
+                  );
+                }
+                return (
+                  <video
+                    ref={videoRef}
+                    src={src}
+                    playsInline
+                    preload="metadata"
+                    onTimeUpdate={handleMediaTimeUpdate}
+                    onEnded={() => setIsPlaying(false)}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={togglePlay}
+                  />
+                );
+              })()}
 
               {/* StatusDot mounted in top corner */}
               <div className="absolute top-4 end-4 z-30">
                 <StatusDot
                   state={playerState}
-                  sessionSpend={`₦${spend.toFixed(2)}`}
+                  sessionSpend={formatUSD(spend)}
                   minutesUsed={formatMinutesUsed(currentTime)}
-                  balance={`₦${currentWalletBalance.toLocaleString("en-NG", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}`}
+                  balance={formatUSD(currentWalletBalance)}
                   ratePerMin={getRateLabel()}
                   showLiveMeter={showLiveMeter}
                   onToggleLiveMeter={setShowLiveMeter}
@@ -1265,7 +1362,7 @@ export default function CoursePlayerPage() {
             <div className="w-full bg-[#111A16] text-white p-6 sm:p-10 relative overflow-hidden select-none">
               <audio
                 ref={audioRef}
-                src="/videos/sample.mp4"
+                src={realLessons[activeModuleIndex]?.contentUrl || ""}
                 preload="metadata"
                 onTimeUpdate={handleMediaTimeUpdate}
                 onEnded={() => setIsPlaying(false)}
@@ -1275,12 +1372,9 @@ export default function CoursePlayerPage() {
               <div className="absolute top-4 end-4 z-30">
                 <StatusDot
                   state={playerState}
-                  sessionSpend={`₦${spend.toFixed(2)}`}
+                  sessionSpend={formatUSD(spend)}
                   minutesUsed={formatMinutesUsed(currentTime)}
-                  balance={`₦${currentWalletBalance.toLocaleString("en-NG", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}`}
+                  balance={formatUSD(currentWalletBalance)}
                   ratePerMin={getRateLabel()}
                   showLiveMeter={showLiveMeter}
                   onToggleLiveMeter={setShowLiveMeter}
@@ -1444,12 +1538,9 @@ export default function CoursePlayerPage() {
               <div className="absolute top-4 end-4 z-30">
                 <StatusDot
                   state={playerState}
-                  sessionSpend={`₦${spend.toFixed(2)}`}
+                  sessionSpend={formatUSD(spend)}
                   minutesUsed={formatMinutesUsed(currentTime)}
-                  balance={`₦${currentWalletBalance.toLocaleString("en-NG", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}`}
+                  balance={formatUSD(currentWalletBalance)}
                   ratePerMin={getRateLabel()}
                   showLiveMeter={showLiveMeter}
                   onToggleLiveMeter={setShowLiveMeter}

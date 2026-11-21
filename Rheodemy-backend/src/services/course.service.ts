@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { NotFound, Forbidden } from "../utils/errors";
+import { LedgerService } from "./ledger.service";
 import { CreateCourseInput, CreateLessonInput, UpdateProgressInput } from "../types/course.types";
 
 /**
@@ -134,6 +135,11 @@ export class CourseService {
     return prisma.course.findMany({
       where: { instructorId },
       include: {
+        lessons: {
+          select: { contentType: true },
+          orderBy: { order: "asc" },
+          take: 1,
+        },
         _count: { select: { lessons: true, enrollments: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -374,7 +380,7 @@ export class CourseService {
     ]);
 
     const totalPaid = sessions.reduce((sum, s) => sum + Number(s.totalPaid), 0);
-    const totalRevenue = totalPaid * 0.5; // 50% creator split
+    const totalRevenue = totalPaid * LedgerService.creatorShare;
 
     const totalMinutesStreamed = sessions.reduce((sum, s) => {
       if (s.endedAt && s.startedAt) {

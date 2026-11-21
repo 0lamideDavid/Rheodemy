@@ -50,6 +50,7 @@ const ONBOARDING_I18N: Record<
     simPlayback: string;
     simFree: string;
     simBilled: string;
+    simPaused: string;
     simSpend: string;
     step3Badge: string;
     step3Title: string;
@@ -73,20 +74,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "Step 2 of 3 • The Core Guarantee",
     step2Title: "Never buy an entire course upfront",
     step2Desc: "Traditional education locks you into $50,000 subscriptions. Rheodemy streams knowledge with 3 mathematically protected rules.",
-    g1Title: "2-Minute Free Preview",
-    g1Desc: "Every video, audio lesson, or book chapter gives you 120 seconds of free learning to check if the instructor is right for you.",
+    g1Title: "Pay Strictly Per Second",
+    g1Desc: "Never buy a whole course upfront. Micro-payments stream strictly while you are actively learning, calculated by the second.",
     g2Title: "Zero Charge on Pause",
     g2Desc: "The payment meter stops instantly when you pause, walk away, or reread. Buffering and reviewing watched parts is always $0.",
     g3Title: "Rent-to-Own Price Cap",
     g3Desc: "Once your streaming payments reach the creator's cap (e.g. $200), the course is permanently unlocked in your library forever.",
     simTitle: "Simulated Interledger Stream",
     simPlayback: "Active Playback",
-    simFree: "In 2-minute free preview window • $0.00 charged",
+    simFree: "Playback paused • Meter stopped",
     simBilled: "Active billing at $5 / min • Billed per second",
+    simPaused: "Playback paused • Payment meter stopped ($0.00 / min)",
     simSpend: "Session Spend",
     step3Badge: "Step 3 of 3 • Ready to Learn",
-    step3Title: "Start with a $1,200 starter credit",
-    step3Desc: "Every new student receives starting learning credits to preview lessons. Top up easily via Mobile Money or Interledger.",
+    step3Title: "Start with a $50 starter credit",
+    step3Desc: "Every new student receives $50 starting credits in their learner wallet. Top up easily via Mobile Money or Interledger.",
     walletTitle: "Interledger Learner Wallet",
     walletStatus: "Status: Ready to activate",
     openingBalance: "Opening Balance",
@@ -105,20 +107,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "Étape 2 sur 3 • Les 3 Garanties",
     step2Title: "N'achetez plus jamais un cours complet à l'avance",
     step2Desc: "L'éducation traditionnelle impose des abonnements coûteux. Rheodemy diffuse le savoir avec 3 règles mathématiquement protégées.",
-    g1Title: "Aperçu gratuit de 2 minutes",
-    g1Desc: "Chaque vidéo, leçon audio ou chapitre de livre vous offre 120 secondes gratuites pour évaluer l'enseignant.",
+    g1Title: "Paiement strict à la seconde",
+    g1Desc: "N'achetez jamais un cours complet à l'avance. Les micro-paiements s'écoulent strictement pendant votre apprentissage actif, à la seconde.",
     g2Title: "Zéro frais en pause",
     g2Desc: "Le compteur s'arrête instantanément en pause. La mise en mémoire tampon et la relecture sont toujours à 0 FCFA.",
     g3Title: "Plafond d'achat définitif",
     g3Desc: "Dès que vos micropaiements atteignent le plafond (ex. 200 FCFA), le cours est définitivement débloqué à vie.",
     simTitle: "Flux Interledger Simulé",
     simPlayback: "Lecture active",
-    simFree: "Fenêtre d'aperçu gratuit de 2 min • 0 FCFA facturé",
-    simBilled: "Facturation active à la seconde",
+    simFree: "Lecture en pause • Compteur arrêté",
+    simBilled: "Facturation active à la seconde • 5 $ / min",
+    simPaused: "Lecture en pause • Compteur de paiement arrêté (0,00 $ / min)",
     simSpend: "Dépense de session",
     step3Badge: "Étape 3 sur 3 • Prêt à apprendre",
-    step3Title: "Commencez avec 1 200 FCFA de crédit offert",
-    step3Desc: "Chaque nouvel étudiant reçoit un crédit de bienvenue pour tester les leçons. Rechargez facilement via Mobile Money ou Interledger.",
+    step3Title: "Commencez avec 50 $ de crédit offert",
+    step3Desc: "Chaque nouvel étudiant reçoit 50 $ de crédit de bienvenue pour apprendre immédiatement. Rechargez facilement via Mobile Money ou Interledger.",
     walletTitle: "Portefeuille Apprenant Interledger",
     walletStatus: "Statut : Prêt à être activé",
     openingBalance: "Solde d'ouverture",
@@ -137,20 +140,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "Etapa 2 de 3 • A Garantia Principal",
     step2Title: "Nunca pague um curso inteiro adiantado",
     step2Desc: "A educação tradicional prende-o a subscrições caras. O Rheodemy transmite conhecimento com 3 regras protegidas.",
-    g1Title: "Pré-visualização gratuita de 2 minutos",
-    g1Desc: "Cada vídeo, áudio ou capítulo oferece 120 segundos gratuitos para verificar se o instrutor é ideal para si.",
+    g1Title: "Pagamento estrito por segundo",
+    g1Desc: "Nunca compre um curso inteiro adiantado. Os micropagamentos fluem estritamente durante o estudo ativo, calculado por segundo.",
     g2Title: "Custo zero na pausa",
     g2Desc: "O medidor para instantaneamente quando faz uma pausa ou relê. O buffer e revisões são sempre 0 Kz.",
     g3Title: "Teto de compra definitiva",
     g3Desc: "Assim que os seus pagamentos atingirem o teto do criador, o curso fica desbloqueado na sua biblioteca para sempre.",
     simTitle: "Transmissão Interledger Simulada",
     simPlayback: "Reprodução ativa",
-    simFree: "Na janela gratuita de 2 minutos • 0 Kz cobrado",
-    simBilled: "Cobrança ativa por segundo",
+    simFree: "Reprodução em pausa • Medidor parado",
+    simBilled: "Cobrança ativa por segundo • $5 / min",
+    simPaused: "Reprodução em pausa • Medidor de pagamento parado ($0,00 / min)",
     simSpend: "Gasto da sessão",
     step3Badge: "Etapa 3 de 3 • Pronto para aprender",
-    step3Title: "Comece com 1.200 de crédito inicial",
-    step3Desc: "Cada novo estudante recebe créditos de boas-vindas para pré-visualizar aulas. Carregue via Mobile Money ou Interledger.",
+    step3Title: "Comece com $50 de crédito inicial",
+    step3Desc: "Cada novo estudante recebe $50 de crédito de boas-vindas para começar a aprender imediatamente. Carregue via Mobile Money ou Interledger.",
     walletTitle: "Carteira Interledger do Aluno",
     walletStatus: "Estado: Pronto para ativar",
     openingBalance: "Saldo Inicial",
@@ -169,20 +173,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "Paso 2 de 3 • La Garantía Principal",
     step2Title: "Nunca compres un curso completo por adelantado",
     step2Desc: "La educación tradicional te ata a suscripciones costosas. Rheodemy transmite conocimiento con 3 reglas matemáticas.",
-    g1Title: "Vista previa gratuita de 2 minutos",
-    g1Desc: "Cada lección en video, audio o libro ofrece 120 segundos gratis para comprobar si el profesor es el adecuado.",
+    g1Title: "Pago estricto por segundo",
+    g1Desc: "Nunca compres un curso completo por adelantado. Los micropagos fluyen estrictamente mientras aprendes de forma activa, segundo a segundo.",
     g2Title: "Cero cobro en pausa",
     g2Desc: "El medidor se detiene al instante si pausas o relees. Cargar y repasar partes vistas siempre es gratis.",
     g3Title: "Tope de compra definitiva",
     g3Desc: "Cuando tus micropagos alcanzan el tope del creador, el curso se desbloquea para siempre en tu biblioteca.",
     simTitle: "Transmisión Interledger Simulada",
     simPlayback: "Reproducción activa",
-    simFree: "En periodo gratuito de 2 minutos • $0 cobrado",
-    simBilled: "Facturación activa por segundo",
+    simFree: "Reproducción en pausa • Medidor detenido",
+    simBilled: "Facturación activa por segundo • $5 / min",
+    simPaused: "Reproducción en pausa • Medidor de pago detenido ($0.00 / min)",
     simSpend: "Gasto de sesión",
     step3Badge: "Paso 3 de 3 • Listo para aprender",
-    step3Title: "Empieza con 1.200 de crédito de bienvenida",
-    step3Desc: "Cada nuevo estudiante recibe saldo para probar lecciones. Recarga fácilmente con dinero móvil o Interledger.",
+    step3Title: "Empieza con $50 de crédito de bienvenida",
+    step3Desc: "Cada nuevo estudiante recibe $50 de saldo para comenzar a aprender de inmediato. Recarga fácilmente con dinero móvil o Interledger.",
     walletTitle: "Billetera Interledger del Estudiante",
     walletStatus: "Estado: Lista para activar",
     openingBalance: "Saldo Inicial",
@@ -201,20 +206,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "الخطوة 2 من 3 • الضمانات الأساسية",
     step2Title: "لا تدفع أبداً ثمن دورة كاملة مقدماً",
     step2Desc: "التعليم التقليدي يفرض اشتراكات باهظة. ريوديمي يقدم المعرفة وفق 3 قواعد رياضية عادلة ومحمية.",
-    g1Title: "معاينة مجانية لمدة دقيقتين",
-    g1Desc: "كل درس فيديو أو صوتي أو فصل كتاب يمنحك 120 ثانية مجانية لتتأكد من ملاءمة المحتوى لك.",
+    g1Title: "دفع متدفق بالثانية بدقة",
+    g1Desc: "لا تشترِ دورة كاملة مقدماً أبداً. تتدفق المدفوعات الصغرى فقط أثناء وقت التعلم النشط، ثانية بثانية.",
     g2Title: "بدون أي رسوم عند التوقف",
     g2Desc: "يتوقف عداد الدفع فوراً عند الإيقاف المؤقت أو إعادة القراءة. مراجعة ما شاهدته مجانية دائماً.",
     g3Title: "سقف الشراء التملكي",
     g3Desc: "بمجرد أن تصل دفعاتك المتدفقة إلى سقف السعر المحدد، تصبح الدورة ملكاً لك في مكتبتك إلى الأبد.",
     simTitle: "محاكاة تدفق إنترلدجر المالي",
     simPlayback: "التشغيل النشط",
-    simFree: "في نافذة المعاينة المجانية (دقيقتان) • 0 رسوم",
-    simBilled: "دفع متدفق بالثانية",
+    simFree: "التشغيل متوقف مؤقتاً • العداد متوقف",
+    simBilled: "دفع متدفق بالثانية • 5$ / دقيقة",
+    simPaused: "التشغيل متوقف مؤقتاً • توقف عداد الدفع (0.00$ / دقيقة)",
     simSpend: "تكلفة الجلسة",
     step3Badge: "الخطوة 3 من 3 • جاهز للتعلم",
-    step3Title: "ابدأ برصيد ترحيبي 1,200",
-    step3Desc: "يحصل كل طالب جديد على رصيد تجريبي لمعاينة الدروس. يمكنك الشحن بسهولة عبر الهاتف المحمول أو إنترلدجر.",
+    step3Title: "ابدأ برصيد ترحيبي 50$",
+    step3Desc: "يحصل كل طالب جديد على 50$ رصيد بدء للتعلم الفوري. يمكنك الشحن بسهولة عبر الهاتف المحمول أو إنترلدجر.",
     walletTitle: "محفظة الطالب عبر إنترلدجر",
     walletStatus: "الحالة: جاهزة للتفعيل",
     openingBalance: "الرصيد الافتتاحي",
@@ -233,20 +239,21 @@ const ONBOARDING_I18N: Record<
     step2Badge: "Hatua ya 2 ya 3 • Dhamana Kuu",
     step2Title: "Usinunue kozi nzima kabla ya kujifunza",
     step2Desc: "Elimu ya zamani inakulazimisha usajili wa bei ghali. Rheodemy inaleta maarifa kwa sheria 3 zilizolindwa kihisabati.",
-    g1Title: "Dakika 2 za Kutazama Bure",
-    g1Desc: "Kila somo la video, sauti, au sura ya kitabu inakupa sekunde 120 za bure kuthibitisha ubora wa mwalimu.",
+    g1Title: "Lipa kwa Kila Sekunde Halisi",
+    g1Desc: "Usinunue kozi nzima mapema. Malipo madogo hutiririka tu wakati unaposoma kwa bidii, sekunde kwa sekunde.",
     g2Title: "Bila Malipo Ukisitisha",
     g2Desc: "Kipimo cha malipo kinasimama punde unaposimama au kurudia kusoma. Kurudia ni bure daima.",
     g3Title: "Kiwango cha Juu cha Umiliki",
     g3Desc: "Malipo yakifikia kiwango cha juu kilichowekwa na mwalimu, somo linakuwa lako milele.",
     simTitle: "Uigaji wa Mtiririko wa Interledger",
     simPlayback: "Muda wa Somo",
-    simFree: "Ndani ya dakika 2 za bure • Malipo ni KSh 0",
-    simBilled: "Ulipaji unaoendelea kwa kila sekunde",
+    simFree: "Somo limesitishwa • Kipimo kimesimama",
+    simBilled: "Ulipaji unaoendelea kwa kila sekunde • $5 / dakika",
+    simPaused: "Somo limesitishwa • Kipimo cha malipo kimesimama ($0.00 / dakika)",
     simSpend: "Gharama ya Kipindi",
     step3Badge: "Hatua ya 3 ya 3 • Tayari Kuanza",
-    step3Title: "Anza na salio la bure la KSh 1,200",
-    step3Desc: "Kila mwanafunzi mpya anapata salio la kuanzia kujaribu masomo. Weka pesa kwa urahisi kupitia M-Pesa au Interledger.",
+    step3Title: "Anza na salio la kuanzia la $50",
+    step3Desc: "Kila mwanafunzi mpya anapata salio la kuanzia la $50 kuanza kujifunza mara moja. Weka pesa kwa urahisi kupitia M-Pesa au Interledger.",
     walletTitle: "Pochi ya Mwanafunzi ya Interledger",
     walletStatus: "Hali: Tayari kuanza",
     openingBalance: "Salio la Kuanzia",
@@ -267,27 +274,22 @@ export default function OnboardingWalkthrough() {
 
   // Step 2 interactive micropayment simulation
   const [isSimulating, setIsSimulating] = useState(true);
-  const [simSeconds, setSimSeconds] = useState(38); // 38 seconds into lesson
-  const [simSpend, setSimSpend] = useState(0);
+  const [simSeconds, setSimSeconds] = useState(18); // 18 seconds into lesson
+  const [simSpend, setSimSpend] = useState(1.5);
 
   const selectedLang: LanguageCode = language || "en";
   const currentI18n = ONBOARDING_I18N[selectedLang] || ONBOARDING_I18N.en;
 
-  // Simulation timer
+  // Simulation timer — money flows per second when active; stops completely on pause
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isSimulating && currentStep === 2) {
       interval = setInterval(() => {
         setSimSeconds((prev) => {
           const next = prev + 1;
-          // Beyond 120s preview, bill at $5/min ($0.0833/s) up to $200 cap
-          if (next > 120) {
-            const billable = next - 120;
-            const calculated = Math.min(200, billable * (5 / 60));
-            setSimSpend(calculated);
-          } else {
-            setSimSpend(0);
-          }
+          // Money flows immediately at $5/min ($0.0833/s) up to $200 cap
+          const calculated = Math.min(200, next * (5 / 60));
+          setSimSpend(calculated);
           return next;
         });
       }, 1000);
@@ -505,9 +507,9 @@ export default function OnboardingWalkthrough() {
                   {currentI18n.simPlayback}: {Math.floor(simSeconds / 60)}m {(simSeconds % 60).toString().padStart(2, "0")}s
                 </h4>
                 <p className="text-xs text-muted">
-                  {simSeconds <= 120
-                    ? currentI18n.simFree
-                    : currentI18n.simBilled}
+                  {isSimulating
+                    ? currentI18n.simBilled
+                    : currentI18n.simPaused}
                 </p>
               </div>
 
@@ -570,7 +572,7 @@ export default function OnboardingWalkthrough() {
 
                 <div className="text-left sm:text-right rtl:sm:text-left">
                   <span className="text-[10px] font-mono uppercase text-muted block">{currentI18n.openingBalance}</span>
-                  <span className="font-mono text-2xl font-bold text-forest">$1,200.00</span>
+                  <span className="font-mono text-2xl font-bold text-forest">$50.00</span>
                 </div>
               </div>
 

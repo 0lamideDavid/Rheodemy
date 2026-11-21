@@ -111,9 +111,11 @@ export class WalletService {
     if (!topUp) throw NotFound("Top-up not found");
 
     let status = topUp.status;
+    // Every rail is simulated in this build, so confirm any pending top-up
+    // after the short provider-callback delay. Real gateways should confirm
+    // through the signed webhook instead.
     if (
       status === "PENDING" &&
-      topUp.provider === "simulated" &&
       Date.now() - topUp.createdAt.getTime() >= SIMULATED_CONFIRM_MS
     ) {
       await LedgerService.creditTopUp(topUp.id);

@@ -21,6 +21,10 @@ import {
 } from "lucide-react";
 import { VerifiedStamp } from "@/components/ui/VerifiedStamp";
 import { LaurieAdvisor } from "@/components/ui/LaurieAdvisor";
+import { useAuth } from "@/context/AuthContext";
+import { api, type Course as BackendCourse } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
+import { formatUSD, toNumber } from "@/lib/currency";
 
 // ============================================================================
 // DATA MODELS & MASTER DATA (Following Pages 18-27 of the UX Redesign Plan)
@@ -350,28 +354,117 @@ export default function LearnerDashboard() {
   const [userName, setUserName] = useState<string>("Amara Okafor");
   const [isFirstTime, setIsFirstTime] = useState<boolean>(false);
 
+  const { user, token, displayName } = useAuth();
+
   // Wallet Balance (Self-Custody Interledger)
-  const [walletBalance, setWalletBalance] = useState<number>(1200.0);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [allCourses, setAllCourses] = useState<LearnerCourse[]>(INITIAL_COURSES);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (displayName) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUserName(displayName);
+    } else {
       const saved = localStorage.getItem("rheodemy_user_name");
       if (saved && saved.trim()) setUserName(saved.trim());
-      setIsFirstTime(localStorage.getItem("rheodemy_auth_mode") === "signup");
-      const savedBal = localStorage.getItem("rheodemy_wallet_balance");
-      if (savedBal) setWalletBalance(parseFloat(savedBal));
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+    setIsFirstTime(localStorage.getItem("rheodemy_auth_mode") === "signup");
+  }, [displayName]);
+
+  const mapBackendCourse = (course: BackendCourse): LearnerCourse => {
+    const lessons = course.lessons ?? [];
+    const type = lessons[0]?.contentType;
+    const medium: LearnerCourse["medium"] =
+      type === "AUDIO" ? "audio" : type === "EBOOK" ? "ebook" : "video";
+    const totalMinutes =
+      lessons.reduce((acc, l) => acc + Math.round((l.durationSec ?? 0) / 60), 0) || 45;
+    const unlockCapNumeric = toNumber(course.unlockPrice ?? 10);
+    const rateNumeric = toNumber(course.pricePerMinute);
+    const instructorName = course.instructor
+      ? `${course.instructor.firstName} ${course.instructor.lastName}`.trim()
+      : "Rheodemy Instructor";
+    return {
+      id: course.id,
+      title: course.title,
+      instructor: { name: instructorName, verified: true, role: "Verified Educator" },
+      medium,
+      category: "Tech",
+      tier: (course.tier as LearnerCourse["tier"]) || "Core",
+      durationOrPages: medium === "ebook" ? `${lessons.length || 1} chapters` : `${totalMinutes} min`,
+      totalMinutes,
+      ratePerMin: `${formatUSD(rateNumeric)}/min`,
+      rateNumeric,
+      unlockPrice: `${formatUSD(unlockCapNumeric)} cap`,
+      unlockCapNumeric,
+      coverImage:
+        course.thumbnailUrl ||
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop",
+      minutesLearned: 0,
+      amountPaid: 0,
+      lastPosition: lessons[0] ? `Lesson 1: ${lessons[0].title}` : "Ready to start",
+      unlocked: false,
+      saved: false,
+      completed: false,
+      description: course.description,
+    };
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [balance, list, progress] = await Promise.all([
+          api.wallet.balance().catch(() => null),
+          api.courses.list().catch(() => [] as BackendCourse[]),
+          api.courses.inProgress().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (balance) setWalletBalance(balance.learnerBalance);
+
+        const progressMap = new Map<string, LearnerCourse>();
+        for (const c of (progress?.allProgress ?? []) as LearnerCourse[]) {
+          progressMap.set(c.id, c);
+        }
+        const merged = new Map<string, LearnerCourse>();
+        for (const c of list) {
+          const base = mapBackendCourse(c);
+          const p = progressMap.get(c.id);
+          merged.set(c.id, p ? { ...base, ...p, instructor: base.instructor, coverImage: p.coverImage || base.coverImage } : base);
+        }
+        for (const [id, p] of progressMap) {
+          if (!merged.has(id)) merged.set(id, p);
+        }
+        if (merged.size > 0) setAllCourses(Array.from(merged.values()));
+      } finally {
+        if (!cancelled) setIsLoadingData(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const socket = getSocket();
+    if (!socket) return;
+    const onWallet = (p: { learnerBalance?: number }) => {
+      if (typeof p.learnerBalance === "number") setWalletBalance(p.learnerBalance);
+    };
+    socket.on("wallet:updated", onWallet);
+    socket.on("payment:tick", onWallet);
+    return () => { socket.off("wallet:updated", onWallet); socket.off("payment:tick", onWallet); };
+  }, [token]);
 
   // Top Up Modal State
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  
+
   // Laurie AI Course Advisor Drawer
   const [isLaurieOpen, setIsLaurieOpen] = useState(false);
-  const [topUpAmount, setTopUpAmount] = useState<number>(1000);
+  const [topUpAmount, setTopUpAmount] = useState<number>(10);
   const [topUpProvider, setTopUpProvider] = useState<"momo" | "mpesa" | "airtel" | "ilp">("momo");
   const [topUpSuccess, setTopUpSuccess] = useState(false);
+  const [isToppingUp, setIsToppingUp] = useState(false);
 
   // Browse View States
   const [browseSubject, setBrowseSubject] = useState<string>("All");
@@ -380,49 +473,47 @@ export default function LearnerDashboard() {
   const [browseSort, setBrowseSort] = useState<"recommended" | "newest" | "lowestRate">("recommended");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Sync wallet balance across browser tabs
-  useEffect(() => {
-    const handleStorage = () => {
-      const saved = localStorage.getItem("rheodemy_wallet_balance");
-      if (saved) setWalletBalance(parseFloat(saved));
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  const handleExecuteTopUp = () => {
-    const updated = walletBalance + topUpAmount;
-    setWalletBalance(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("rheodemy_wallet_balance", updated.toFixed(2));
+  const handleExecuteTopUp = async () => {
+    if (isToppingUp) return;
+    setIsToppingUp(true);
+    try {
+      const topUp = await api.wallet.topUp(topUpAmount, "simulated");
+      let status = topUp.status;
+      for (let i = 0; i < 20 && status === "PENDING"; i += 1) {
+        await new Promise((r) => setTimeout(r, 500));
+        status = (await api.wallet.topUpStatus(topUp.reference)).status;
+      }
+      if (status === "COMPLETED") {
+        const b = await api.wallet.balance();
+        setWalletBalance(b.learnerBalance);
+        setTopUpSuccess(true);
+        setTimeout(() => { setTopUpSuccess(false); setIsTopUpOpen(false); }, 1500);
+      }
+    } finally {
+      setIsToppingUp(false);
     }
-    setTopUpSuccess(true);
-    setTimeout(() => {
-      setTopUpSuccess(false);
-      setIsTopUpOpen(false);
-    }, 1500);
   };
 
   // 1. Primary "Continue" Hero Course (most recently active)
-  const continueCourse = INITIAL_COURSES.find((c) => c.id === "ts-arch") || INITIAL_COURSES[0];
+  const continueCourse = allCourses.find((c) => c.minutesLearned > 0 && !c.completed) || allCourses[0];
 
   // 2. In Progress Courses (Page 18 rule: STRICTLY > 0 min learned, not yet unlocked)
-  const inProgressCourses = INITIAL_COURSES.filter((c) => c.minutesLearned > 0 && !c.unlocked);
+  const inProgressCourses = allCourses.filter((c) => c.minutesLearned > 0 && !c.unlocked);
 
   // 3. Unlocked Courses (Price cap reached, free lifetime rewatch)
-  const unlockedCourses = INITIAL_COURSES.filter((c) => c.unlocked);
+  const unlockedCourses = allCourses.filter((c) => c.unlocked);
 
   // 4. Saved Courses (Wishlist)
-  const savedCourses = INITIAL_COURSES.filter((c) => c.saved);
+  const savedCourses = allCourses.filter((c) => c.saved);
 
   // 5. Completed Courses
-  const completedCourses = INITIAL_COURSES.filter((c) => c.completed);
+  const completedCourses = allCourses.filter((c) => c.completed);
 
   // 6. Recommended Courses for Home Block 4 (Page 20)
-  const recommendedCourses = INITIAL_COURSES.filter((c) => c.id !== continueCourse.id).slice(0, 3);
+  const recommendedCourses = allCourses.filter((c) => c.id !== continueCourse?.id).slice(0, 3);
 
   // 7. Browse Catalog Filtering (Subject first, then secondary filters)
-  const filteredCatalog = INITIAL_COURSES.filter((course) => {
+  const filteredCatalog = allCourses.filter((course) => {
     const matchesSubject = browseSubject === "All" || course.category === browseSubject;
     const matchesFormat = browseFormat === "All" || course.medium === browseFormat.toLowerCase();
     const matchesTier = browseTier === "All" || course.tier === browseTier;
@@ -503,7 +594,7 @@ export default function LearnerDashboard() {
           <div className="text-right">
             <span className="text-[10px] font-mono uppercase text-muted block leading-none">Wallet Balance</span>
             <span className="font-mono text-sm font-bold text-ink">
-              ₦{walletBalance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                {formatUSD(walletBalance)}
             </span>
           </div>
           <button
@@ -550,7 +641,7 @@ export default function LearnerDashboard() {
                 </div>
                 <div>
                   <div className="font-mono text-3xl font-bold text-ink" suppressHydrationWarning>
-                    ₦{walletBalance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+              {formatUSD(walletBalance)}
                   </div>
                   <span className="text-xs text-muted block mt-1">
                     About {Math.floor(walletBalance / 6.5)} minutes of learning at ₦6.50/min
@@ -679,7 +770,7 @@ export default function LearnerDashboard() {
                         {continueCourse.minutesLearned} min learned ({continueCourse.totalMinutes - continueCourse.minutesLearned} min left)
                       </span>
                       <span className="font-bold text-forest">
-                        ₦{continueCourse.amountPaid} paid of {continueCourse.unlockPrice} (70%)
+                        {formatUSD(continueCourse.amountPaid)} paid of {continueCourse.unlockPrice}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-paper rounded-full overflow-hidden border border-rule">
@@ -760,7 +851,7 @@ export default function LearnerDashboard() {
                       <div className="space-y-1.5 pt-2">
                         <div className="flex items-center justify-between text-xs font-mono">
                           <span className="text-muted">{course.minutesLearned} min learned</span>
-                          <span className="font-bold text-ink">₦{course.amountPaid} paid of {course.unlockPrice}</span>
+                          <span className="font-bold text-ink">{formatUSD(course.amountPaid)} paid of {course.unlockPrice}</span>
                         </div>
                         <div className="w-full h-1.5 bg-paper rounded-full overflow-hidden border border-rule">
                           <div 
@@ -1066,7 +1157,7 @@ export default function LearnerDashboard() {
                         <div className="space-y-1.5 pt-2">
                           <div className="flex items-center justify-between text-xs font-mono">
                             <span className="text-muted">{course.minutesLearned} min learned ({course.totalMinutes - course.minutesLearned} min left)</span>
-                            <span className="font-bold text-forest">₦{course.amountPaid} paid of {course.unlockPrice}</span>
+                            <span className="font-bold text-forest">{formatUSD(course.amountPaid)} paid of {course.unlockPrice}</span>
                           </div>
                           <div className="w-full h-2 bg-paper rounded-full overflow-hidden border border-rule">
                             <div className="h-full bg-forest transition-all" style={{ width: `${percent}%` }} />
@@ -1444,7 +1535,7 @@ export default function LearnerDashboard() {
             <div className="ledger-card p-5 bg-surface space-y-1">
               <span className="text-[10px] font-mono uppercase text-muted font-semibold block">Current Balance</span>
               <p className="font-mono text-2xl font-bold text-forest">
-                ₦{walletBalance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                    {formatUSD(walletBalance)}
               </p>
               <span className="text-xs text-muted">Self-custodied Open Payments channel</span>
             </div>
@@ -1595,7 +1686,7 @@ export default function LearnerDashboard() {
             {/* Quick Amount Selector */}
             <div className="space-y-2">
               <span className="text-xs font-mono uppercase text-muted font-semibold block">
-                Select Deposit Amount (NGN)
+                Select Deposit Amount (USD)
               </span>
               <div className="grid grid-cols-3 gap-3">
                 {[500, 1000, 2500].map((amt) => (
@@ -1609,7 +1700,7 @@ export default function LearnerDashboard() {
                         : "bg-paper border-rule text-ink hover:bg-surface"
                     }`}
                   >
-                    +₦{amt}
+                    +${amt}
                   </button>
                 ))}
               </div>
@@ -1684,7 +1775,7 @@ export default function LearnerDashboard() {
                 </>
               ) : (
                 <>
-                  <span>Confirm Deposit of ₦{topUpAmount.toLocaleString()}</span>
+                  <span>Confirm Deposit of {formatUSD(topUpAmount)}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

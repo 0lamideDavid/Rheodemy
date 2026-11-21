@@ -22,12 +22,15 @@ export interface InstructorSummary {
   email?: string;
 }
 
+export type LessonContentType = "VIDEO" | "AUDIO" | "EBOOK";
+
 export interface Lesson {
   id: string;
   courseId: string;
   title: string;
   description?: string | null;
   contentUrl: string;
+  contentType?: LessonContentType;
   durationSec: number;
   order: number;
 }
@@ -37,9 +40,11 @@ export interface Course {
   title: string;
   description: string;
   pricePerMinute: string | number;
+  unlockPrice?: string | number | null;
   currency: string;
   thumbnailUrl?: string | null;
   status: string;
+  tier?: string | null;
   instructorId: string;
   instructor?: InstructorSummary;
   lessons?: Lesson[];
@@ -70,6 +75,36 @@ export interface SessionSummary {
   tickCount: number;
 }
 
+export interface TopUp {
+  reference: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  status: "PENDING" | "COMPLETED" | "FAILED";
+  authorizationUrl?: string | null;
+  completedAt?: string | null;
+}
+
+export interface PaymentTick {
+  sessionId?: string;
+  amountPaid?: number;
+  creatorEarnings?: number;
+  platformFee?: number;
+  currency?: string;
+  balance?: number;
+  creatorBalance?: number;
+  totalPaid?: number;
+  tickIndex?: number;
+  state?: "paying" | "paused" | "ended" | "killed";
+}
+
+export interface WalletUpdated {
+  learnerBalance: number;
+  creatorBalance: number;
+  currency: string;
+  timestamp?: string;
+}
+
 export interface InstructorSession {
   id: string;
   studentName: string;
@@ -81,13 +116,36 @@ export interface InstructorSession {
   endedAt: string;
 }
 
+export interface LearnerProgressCourse {
+  id: string;
+  title: string;
+  instructor: { name: string; verified: boolean; role: string };
+  medium: "video" | "ebook" | "audio";
+  category: string;
+  tier: string;
+  totalMinutes: number;
+  ratePerMin: string;
+  rateNumeric: number;
+  unlockPrice: string;
+  unlockCapNumeric: number;
+  coverImage: string;
+  minutesLearned: number;
+  amountPaid: number;
+  lastPosition: string;
+  unlocked: boolean;
+  saved: boolean;
+  completed: boolean;
+  completedDate?: string;
+  description: string;
+}
+
 export interface InProgressData {
-  continueCourse: any;
-  inProgress: any[];
-  unlocked: any[];
-  saved: any[];
-  completed: any[];
-  allProgress: any[];
+  continueCourse: LearnerProgressCourse | null;
+  inProgress: LearnerProgressCourse[];
+  unlocked: LearnerProgressCourse[];
+  saved: LearnerProgressCourse[];
+  completed: LearnerProgressCourse[];
+  allProgress: LearnerProgressCourse[];
 }
 
 export interface InstructorStats {
@@ -219,7 +277,7 @@ export const api = {
         completed?: boolean;
       }
     ) =>
-      apiFetch<any>(`/api/courses/${courseId}/progress`, {
+      apiFetch<unknown>(`/api/courses/${courseId}/progress`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -278,6 +336,13 @@ export const api = {
     transactions: () =>
       apiFetch<WalletTransaction[]>("/api/wallet/transactions"),
     pointer: () => apiFetch<{ pointerUrl: string }>("/api/wallet/pointer"),
+    topUp: (amount: number, provider = "simulated") =>
+      apiFetch<TopUp>("/api/wallet/topup", {
+        method: "POST",
+        body: JSON.stringify({ amount, provider }),
+      }),
+    topUpStatus: (reference: string) =>
+      apiFetch<TopUp>(`/api/wallet/topup/${reference}`),
   },
   sessions: {
     start: (courseId: string, lessonId?: string) =>
@@ -285,10 +350,17 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ courseId, lessonId }),
       }),
-    end: (sessionId: string, totalAmount: number) =>
+    end: (sessionId: string) =>
       apiFetch<SessionSummary>(`/api/sessions/${sessionId}/end`, {
         method: "POST",
-        body: JSON.stringify({ totalAmount }),
+      }),
+    pause: (sessionId: string) =>
+      apiFetch<SessionSummary>(`/api/sessions/${sessionId}/pause`, {
+        method: "POST",
+      }),
+    resume: (sessionId: string) =>
+      apiFetch<SessionSummary>(`/api/sessions/${sessionId}/resume`, {
+        method: "POST",
       }),
     get: (sessionId: string) =>
       apiFetch<SessionSummary>(`/api/sessions/${sessionId}`),

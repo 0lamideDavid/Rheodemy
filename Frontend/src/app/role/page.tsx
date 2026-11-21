@@ -30,10 +30,10 @@ const ROLE_I18N: Record<
     learnerBadge: "Learner Path",
     educatorBadge: "Educator Path",
     lBullets: [
-      "2-minute free preview on every lesson",
+      "Pay strictly per second streamed with zero upfront lock-in",
       "Rewatching and pausing are 100% free ($0 charged)",
       "Creator-defined rent-to-own price caps (e.g. $200)",
-      "Opening learner grant: $1,200 starting credits"
+      "Opening learner grant: $50 starting credits"
     ],
     eBullets: [
       "Receive 50% direct creator share on every streamed second",
@@ -48,10 +48,10 @@ const ROLE_I18N: Record<
     learnerBadge: "Parcours Apprenant",
     educatorBadge: "Parcours Enseignant",
     lBullets: [
-      "Aperçu gratuit de 2 minutes sur chaque leçon",
-      "Relecture et pause 100% gratuites (0 FCFA facturé)",
-      "Plafond d'achat fixé par le créateur (ex. 200 FCFA)",
-      "Crédit de bienvenue : 1 200 FCFA offerts"
+      "Paiement strict à la seconde sans engagement préalable",
+      "Relecture et pause 100% gratuites (0 $ facturé)",
+      "Plafond d'achat fixé par le créateur (ex. 200 $)",
+      "Crédit de bienvenue : 50 $ offerts"
     ],
     eBullets: [
       "Recevez 50% de part créateur directe par seconde diffusée",
@@ -66,10 +66,10 @@ const ROLE_I18N: Record<
     learnerBadge: "Percurso do Aluno",
     educatorBadge: "Percurso do Educador",
     lBullets: [
-      "Pré-visualização gratuita de 2 minutos em cada aula",
-      "Rever e pausar são 100% gratuitos (0 Kz cobrado)",
-      "Teto de compra definido pelo criador (ex. 200 Kz)",
-      "Bolsa inicial de estudante: 1.200 créditos"
+      "Pagamento estrito por segundo sem fidelização",
+      "Rever e pausar são 100% gratuitos (0 $ cobrado)",
+      "Teto de compra definido pelo criador (ex. 200 $)",
+      "Bolsa inicial de estudante: $50 créditos"
     ],
     eBullets: [
       "Receba 50% da partilha de criador por segundo transmitido",
@@ -84,10 +84,10 @@ const ROLE_I18N: Record<
     learnerBadge: "Ruta del Estudiante",
     educatorBadge: "Ruta del Educador",
     lBullets: [
-      "Vista previa gratuita de 2 minutos en cada lección",
+      "Pago estricto por segundo sin suscripciones obligatorias",
       "Repasar y pausar es 100% gratis ($0 cobrado)",
       "Tope de desbloqueo fijado por el creador (ej. $200)",
-      "Crédito inicial para aprender: 1.200 de saldo"
+      "Crédito inicial para aprender: $50 de saldo"
     ],
     eBullets: [
       "Recibe el 50% de ingresos directos por segundo transmitido",
@@ -102,10 +102,10 @@ const ROLE_I18N: Record<
     learnerBadge: "مسار الطالب",
     educatorBadge: "مسار المعلم",
     lBullets: [
-      "معاينة مجانية لمدة دقيقتين في كل درس",
+      "دفع متدفق بالثانية بدقة دون أي التزام مسبق",
       "إعادة المشاهدة والإيقاف المؤقت مجانية 100% (0 رسوم)",
-      "سقف شراء تملكي يحدده منشئ المحتوى (مثال: 200)",
-      "منحة الطالب الترحيبية: 1,200 رصيد بدء"
+      "سقف شراء تملكي يحدده منشئ المحتوى (مثال: 200$)",
+      "منحة الطالب الترحيبية: 50$ رصيد بدء"
     ],
     eBullets: [
       "احصل على 50% حصة منشئ المحتوى المباشرة عن كل ثانية تدفق",
@@ -120,10 +120,10 @@ const ROLE_I18N: Record<
     learnerBadge: "Njia ya Mwanafunzi",
     educatorBadge: "Njia ya Mwalimu",
     lBullets: [
-      "Dakika 2 za kutazama bure katika kila somo",
-      "Kusikiliza tena au kusitisha ni bure 100% (KSh 0)",
-      "Kiwango cha juu cha bei kinachowekwa na mwalimu (k.m. KSh 200)",
-      "Ruzuku ya mwanafunzi: salio la bure la KSh 1,200"
+      "Lipa kwa kila sekunde halisi bila kuanza na usajili",
+      "Kusikiliza tena au kusitisha ni bure 100% ($0)",
+      "Kiwango cha juu cha bei kinachowekwa na mwalimu (k.m. $200)",
+      "Ruzuku ya mwanafunzi: salio la kuanzia la $50"
     ],
     eBullets: [
       "Pata asilimia 50% ya mapato moja kwa moja kwa kila sekunde",

@@ -117,16 +117,16 @@ export default function EditorialLandingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   // Interactive Lesson Demo States (Illustrating the quiet status dot)
-  const [demoState, setDemoState] = useState<PaymentState>("free_preview");
+  const [demoState, setDemoState] = useState<PaymentState>("paused");
   const [demoPlaying, setDemoPlaying] = useState(false);
   const [demoTime, setDemoTime] = useState(34); // current playback position in seconds
   const [maxWatchedTime, setMaxWatchedTime] = useState(34); // furthest second reached (rewatch protection)
-  const [demoSpend, setDemoSpend] = useState(0);
+  const [demoSpend, setDemoSpend] = useState(2.83); // 34s * (5 / 60)
   const [showLiveMeter, setShowLiveMeter] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const TOTAL_DEMO_DURATION = 2710; // 45m 10s
-  const INITIAL_DEMO_BALANCE = 1200.0; // Starting student wallet balance
+  const INITIAL_DEMO_BALANCE = 50.0; // Starting student wallet balance
   const COURSE_UNLOCK_CAP = 200.0; // Rent-to-own guaranteed cap (Permanent Unlock)
 
   // Live wallet balance dynamically decreases as micropayments stream, strictly capped at ₦200 total deduction
@@ -145,17 +145,16 @@ export default function EditorialLandingPage() {
   };
 
   // Rent-to-own and rewatch protection logic:
-  // 1. 0:00 - 2:00 = Free preview (spend = ₦0)
-  // 2. Beyond 2:00 = Micropayments at ₦5/min ONLY for NEW seconds (time >= maxWatchedTime)
-  // 3. Rewatching (time < maxWatchedTime) = 100% FREE! Zero money accumulates while rewatching.
-  // 4. Once cumulative spend reaches ₦200 = Course is permanently unlocked forever!
+  // 1. Pay strictly per second for NEW seconds streamed (time >= maxWatchedTime)
+  // 2. Rewatching (time < maxWatchedTime) = 100% FREE! Zero money accumulates while rewatching.
+  // 3. Once cumulative spend reaches ₦200 = Course is permanently unlocked forever!
   const deriveStateAndSpend = (
     currentTime: number, 
     currentMaxWatched: number, 
     isPlaying: boolean
   ): { state: PaymentState; spend: number } => {
-    // Cumulative spend only counts new content watched beyond the 2-minute (120s) preview
-    const paidSeconds = Math.max(0, currentMaxWatched - 120);
+    // Cumulative spend counts every new second streamed from second 1
+    const paidSeconds = currentMaxWatched;
     const rawSpend = paidSeconds * (5 / 60);
     const spend = Math.min(COURSE_UNLOCK_CAP, rawSpend);
 
@@ -169,17 +168,12 @@ export default function EditorialLandingPage() {
       return { state: "paused", spend };
     }
 
-    // Case 3: In the initial 2-minute free preview window
-    if (currentTime < 120) {
-      return { state: "free_preview", spend };
-    }
-
-    // Case 4: Rewatching previously watched/paid seconds (REWIND PROTECTION!)
+    // Case 3: Rewatching previously watched/paid seconds (REWIND PROTECTION!)
     if (currentTime < currentMaxWatched) {
       return { state: "rewatching", spend };
     }
 
-    // Case 5: Actively streaming brand-new paid content
+    // Case 4: Actively streaming brand-new paid content
     return { state: "paying", spend };
   };
 
@@ -187,8 +181,6 @@ export default function EditorialLandingPage() {
     switch (demoState) {
       case "unlocked":
         return "₦0 / min (Unlocked)";
-      case "free_preview":
-        return "₦0 / min (Preview)";
       case "rewatching":
         return "₦0 / min (Free Rewatch)";
       case "paused":
@@ -258,7 +250,7 @@ export default function EditorialLandingPage() {
     setDemoTime(0);
     setMaxWatchedTime(0);
     setDemoSpend(0);
-    setDemoState(demoPlaying ? "free_preview" : "paused");
+    setDemoState(demoPlaying ? "paying" : "paused");
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
     }
@@ -400,8 +392,8 @@ export default function EditorialLandingPage() {
                   <Check className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <strong className="text-ink font-semibold block">2-minute free preview</strong>
-                  <span className="text-muted">Watch any lesson before spending a single kobo or cent. No account needed.</span>
+                  <strong className="text-ink font-semibold block">Pay strictly per second</strong>
+                  <span className="text-muted">Zero monthly subscriptions. Pay micro-cents strictly while actively learning.</span>
                 </div>
               </div>
             </div>
@@ -419,7 +411,7 @@ export default function EditorialLandingPage() {
         <section className="ledger-card p-5 sm:p-7 bg-surface space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-rule">
             <div>
-              <span className="text-xs uppercase tracking-wider text-muted font-bold">Interactive player preview</span>
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">Interactive player demo</span>
               <h2 className="font-serif text-xl sm:text-2xl font-bold text-ink mt-0.5">
                 How the quiet payment meter works
               </h2>
