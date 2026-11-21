@@ -47,6 +47,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+interlearn-web/
 
 # ──────────────────────────────────────────
 # Misc
