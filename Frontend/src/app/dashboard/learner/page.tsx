@@ -2,17 +2,30 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, ArrowRight, Wallet, BookOpen, Layers, RefreshCw } from "lucide-react";
+import { Search, ArrowRight, Wallet, BookOpen, Layers, RefreshCw, PlayCircle, Clock, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, type Course } from "@/lib/api";
 import { formatUSD } from "@/lib/currency";
 import { COURSE_CATEGORIES, courseCategory, toCourseCard } from "@/lib/courseView";
 import { CourseCard } from "@/components/ui/CourseCard";
+import { LaurieAdvisor } from "@/components/ui/LaurieAdvisor";
 
 const FORMATS = ["All", "Video", "Audio", "Ebook"] as const;
 
+// Placeholder slots for in-progress courses – populate with real API data when ready
+const DEMO_IN_PROGRESS: {
+  id: string;
+  title: string;
+  instructor: string;
+  progress: number;
+  rate: string;
+  medium: "video" | "audio" | "ebook";
+  minutesSpent: number;
+}[] = [];
+
 export default function LearnerDashboard() {
   const { displayName } = useAuth();
+  const [laurieOpen, setLaurieOpen] = useState(false);
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,7 +149,7 @@ export default function LearnerDashboard() {
         </div>
       </section>
 
-      <section className="space-y-5">
+      <section id="catalog-section" className="space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -225,6 +238,117 @@ export default function LearnerDashboard() {
           </div>
         )}
       </section>
+
+      {/* ── CONTINUE WHERE YOU LEFT OFF ─────────────────────────────── */}
+      <section className="ledger-card bg-surface px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-forest/10 p-2 text-forest shrink-0">
+            <Clock className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-forest font-mono">Continue where you left off</p>
+            <p className="text-sm text-muted mt-0.5">
+              Your last session will appear here — just hit Resume to pick up right where you stopped.
+            </p>
+          </div>
+        </div>
+        <button
+          disabled
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-rule bg-rule/30 px-4 py-2 text-xs font-semibold text-muted cursor-not-allowed"
+        >
+          <PlayCircle className="h-4 w-4" />
+          No session yet
+        </button>
+      </section>
+
+      {/* ── COURSES IN PROGRESS ─────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-forest">
+              Continue learning
+            </span>
+            <h2 className="font-serif text-2xl font-bold text-ink mt-0.5">
+              Courses in progress
+            </h2>
+          </div>
+        </div>
+
+        {DEMO_IN_PROGRESS.length === 0 ? (
+          <div className="ledger-card bg-surface p-8 flex flex-col items-center justify-center gap-3 text-center border-dashed">
+            <div className="rounded-full bg-forest/10 p-3 text-forest">
+              <PlayCircle className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-semibold text-ink">No courses started yet</p>
+            <p className="text-xs text-muted max-w-xs">
+              Once you begin a session, your in-progress courses will appear here so you can pick up right where you left off.
+            </p>
+            <a
+              href="#courses"
+              className="btn-forest text-xs mt-1"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("catalog-section")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              Browse catalog
+            </a>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {DEMO_IN_PROGRESS.map((item) => (
+              <Link
+                key={item.id}
+                href={`/dashboard/learner/course/${item.id}`}
+                className="ledger-card bg-surface p-4 flex flex-col gap-3 hover:border-muted transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-forest font-mono">
+                      {item.medium}
+                    </p>
+                    <h3 className="text-sm font-bold text-ink mt-0.5 line-clamp-2">{item.title}</h3>
+                    <p className="text-xs text-muted">{item.instructor}</p>
+                  </div>
+                  <PlayCircle className="h-5 w-5 text-forest shrink-0 mt-0.5" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{item.minutesSpent} min spent</span>
+                    <span>{item.progress}%</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-rule">
+                    <div
+                      className="h-1.5 rounded-full bg-forest transition-all"
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-rule">
+                  <span className="text-xs text-muted">{item.rate}</span>
+                  <span className="text-xs font-semibold text-forest">Resume →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── LAURIE FLOATING BUTTON ──────────────────────────────────── */}
+      <button
+        onClick={() => setLaurieOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-forest/90 transition-colors"
+        aria-label="Open Laurie AI advisor"
+      >
+        <Sparkles className="h-4 w-4" />
+        Ask Laurie
+      </button>
+
+      <LaurieAdvisor
+        isOpen={laurieOpen}
+        onClose={() => setLaurieOpen(false)}
+        learnerName={firstName}
+      />
     </div>
   );
 }
