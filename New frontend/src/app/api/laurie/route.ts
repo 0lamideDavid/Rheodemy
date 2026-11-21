@@ -73,7 +73,7 @@ ${VERIFIED_CATALOG}
       try {
         const model = process.env.LAURIE_MODEL && process.env.LAURIE_MODEL.startsWith("gemini")
           ? process.env.LAURIE_MODEL
-          : "gemini-3.8-flash";
+          : "gemini-flash-lite-latest";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
         
         const contents = messages.map((m: { sender: string; text: string }) => ({
