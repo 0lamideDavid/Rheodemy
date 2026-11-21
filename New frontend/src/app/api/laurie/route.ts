@@ -57,6 +57,7 @@ SAFETY & GUARDRAILS:
 - NEVER invent non-existent courses or prices. You only know the courses in your verified catalog below.
 - You CANNOT initiate payments, debit wallets, change course prices, or issue refunds.
 - Never use generic crypto hype, glowing cyber terms, or emojis as bullet points.
+- If the student sends unclear, incomplete, or gibberish messages, politely ask them what specific topics, skills, or budget they are looking to explore instead of repeating a canned response.
 
 CURRENT CONTEXT:
 ${contextInstruction}
@@ -72,7 +73,7 @@ ${VERIFIED_CATALOG}
       try {
         const model = process.env.LAURIE_MODEL && process.env.LAURIE_MODEL.startsWith("gemini")
           ? process.env.LAURIE_MODEL
-          : "gemini-1.5-flash";
+          : "gemini-3.8-flash";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
         
         const contents = messages.map((m: { sender: string; text: string }) => ({
