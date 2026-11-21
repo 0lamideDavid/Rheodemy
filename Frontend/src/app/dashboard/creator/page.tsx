@@ -1,325 +1,363 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  Plus,
-  BookOpen,
-  Users,
-  DollarSign,
-  Clock,
-  RefreshCw,
-  Radio,
-  AlertCircle,
-} from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import {
-  api,
-  API_URL,
-  type Course,
-  type InstructorSession,
-} from "@/lib/api";
-import { formatUSD } from "@/lib/currency";
+import { useState, useEffect } from 'react';
+import { Plus, Play, ChevronRight, BarChart3, Clock, DollarSign, FileText, Star, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
 
-interface ActiveSession {
-  sessionId: string;
-  studentName: string;
-  courseTitle: string;
-  earned: number;
-}
-
-function formatWhen(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+interface Feedback {
+  id: string;
+  rating: number;
+  category: string;
+  comment: string;
+  timestamp: string;
 }
 
 export default function CreatorDashboard() {
-  const { token, displayName } = useAuth();
+  const { t } = useLanguage();
 
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [earnings, setEarnings] = useState(0);
-  const [history, setHistory] = useState<InstructorSession[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
-
-  const coursesRef = useRef<Course[]>([]);
+  // Feedback states
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [category, setCategory] = useState("monetization");
+  const [comment, setComment] = useState("");
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
   useEffect(() => {
-    coursesRef.current = courses;
-  }, [courses]);
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rheodemy_feedbacks');
+      if (saved) {
+        setFeedbacks(JSON.parse(saved));
+      }
+    }
+  }, []);
 
-  const load = () => {
-    if (!token) return;
-    setIsLoading(true);
-    setLoadError(null);
-    Promise.all([
-      api.courses.mine(),
-      api.wallet.balance(),
-      api.sessions.instructorHistory(10),
-    ])
-      .then(([myCourses, balance, recent]) => {
-        setCourses(myCourses);
-        setEarnings(balance.creatorBalance);
-        setHistory(recent);
-      })
-      .catch((error: Error) => setLoadError(error.message))
-      .finally(() => setIsLoading(false));
+  const handleFeedbackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rating === 0 || !comment.trim()) return;
+
+    const newFeedback: Feedback = {
+      id: Math.random().toString(),
+      rating,
+      category,
+      comment,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const updated = [newFeedback, ...feedbacks];
+    setFeedbacks(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rheodemy_feedbacks', JSON.stringify(updated));
+    }
+    
+    // reset
+    setRating(0);
+    setComment("");
+    setFeedbackSuccess(true);
+    setTimeout(() => setFeedbackSuccess(false), 3000);
   };
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    let socket: { disconnect: () => void } | null = null;
-
-    import("socket.io-client").then(({ io }) => {
-      const client = io(API_URL, { auth: { token } });
-      socket = client;
-
-      client.on(
-        "session:started",
-        (payload: {
-          sessionId: string;
-          courseId: string;
-          courseTitle?: string;
-          studentName?: string;
-        }) => {
-          const course = coursesRef.current.find(
-            (item) => item.id === payload.courseId
-          );
-          const rate = Number(course?.pricePerMinute ?? 0) / 60;
-          setActiveSessions((previous) => [
-            ...previous.filter((item) => item.sessionId !== payload.sessionId),
-            {
-              sessionId: payload.sessionId,
-              studentName: payload.studentName || "Learner",
-              courseTitle: payload.courseTitle || course?.title || "Lesson",
-              earned: 0,
-            },
-          ]);
-
-          if (rate > 0) {
-            const timer = window.setInterval(() => {
-              setActiveSessions((previous) =>
-                previous.map((item) =>
-                  item.sessionId === payload.sessionId
-                    ? { ...item, earned: item.earned + rate }
-                    : item
-                )
-              );
-            }, 1000);
-            client.once("session:ended", () => window.clearInterval(timer));
-          }
-        }
-      );
-
-      client.on("session:ended", (payload: { sessionId: string }) => {
-        setActiveSessions((previous) =>
-          previous.filter((item) => item.sessionId !== payload.sessionId)
-        );
-        api.wallet
-          .balance()
-          .then((balance) => setEarnings(balance.creatorBalance))
-          .catch(() => undefined);
-      });
-    });
-
-    return () => {
-      socket?.disconnect();
-    };
-  }, [token]);
-
-  const totals = useMemo(() => {
-    const lessons = courses.reduce(
-      (sum, course) => sum + (course._count?.lessons ?? course.lessons?.length ?? 0),
-      0
-    );
-    const students = courses.reduce(
-      (sum, course) => sum + (course._count?.enrollments ?? 0),
-      0
-    );
-    return { lessons, students };
-  }, [courses]);
-
   return (
-    <div className="mx-auto max-w-7xl space-y-10 px-4 py-8 sm:px-6">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div className="space-y-2">
-          <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-forest">
-            Creator dashboard
-          </span>
-          <h1 className="font-serif text-3xl font-bold text-ink sm:text-4xl">
-            {displayName ? `Hello, ${displayName.split(" ")[0]}.` : "Creator dashboard"}
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted">
-            Your published courses, live learning sessions, and settled earnings
-            in one place.
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+      
+      {/* Header Section */}
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">{t.overview}</h1>
+          <p className="text-muted mt-2 text-sm max-w-xl leading-relaxed">
+            {t.overviewDesc}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={load}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-3 py-2 text-xs font-medium text-muted hover:text-ink"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
-          <Link href="/dashboard/creator/upload" className="btn-forest text-xs">
-            <Plus className="h-4 w-4" /> New course
-          </Link>
-        </div>
-      </header>
+        <Link 
+          href="/dashboard/creator/upload" 
+          className="bg-primary text-primary-foreground px-5 py-2.5 rounded-md font-medium text-sm flex items-center gap-2 hover:opacity-90 transition-opacity"
+        >
+          <Plus className="w-4 h-4" />
+          {t.newCourse}
+        </Link>
+      </div>
 
-      {loadError && (
-        <div className="ledger-card flex items-start gap-3 bg-surface p-4 text-sm">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-clay" />
-          <div>
-            <p className="font-semibold text-ink">Could not load your creator data.</p>
-            <p className="text-xs text-muted">{loadError}</p>
+      {/* KPI Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Earnings Card */}
+        <div className="p-6 rounded-xl border border-primary/20 bg-primary/[0.02] flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-6 opacity-20 transform group-hover:scale-110 transition-transform duration-500">
+             <div className="w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
           </div>
-        </div>
-      )}
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Earnings", value: isLoading ? "…" : formatUSD(earnings), icon: DollarSign },
-          { label: "Courses", value: isLoading ? "…" : String(courses.length), icon: BookOpen },
-          { label: "Lessons", value: isLoading ? "…" : String(totals.lessons), icon: Clock },
-          { label: "Enrollments", value: isLoading ? "…" : String(totals.students), icon: Users },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="ledger-card flex items-center gap-3 bg-surface p-4">
-            <div className="rounded-lg bg-forest/10 p-2 text-forest">
-              <Icon className="h-5 w-5" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 text-muted mb-4">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_8px_rgba(0,212,200,0.8)] animate-pulse" />
+              <span className="text-xs uppercase tracking-wider font-semibold">{t.totalRevenue}</span>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">{label}</div>
-              <div className="font-mono text-lg font-bold tabular-nums text-ink">{value}</div>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="ledger-card overflow-hidden bg-surface lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-rule px-5 py-4">
-            <h2 className="font-serif text-lg font-bold text-ink">Your courses</h2>
-            <span className="font-mono text-[11px] text-muted">{courses.length} total</span>
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-3 p-5">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="h-16 animate-pulse rounded bg-rule/30" />
-              ))}
-            </div>
-          ) : courses.length === 0 ? (
-            <div className="space-y-3 p-10 text-center">
-              <p className="text-sm text-muted">You have not published a course yet.</p>
-              <Link href="/dashboard/creator/upload" className="btn-forest text-xs">
-                Publish your first course
-              </Link>
-            </div>
-          ) : (
-            <ul className="divide-y divide-rule">
-              {courses.map((course) => (
-                <li key={course.id} className="flex items-center gap-4 px-5 py-4">
-                  <img
-                    src={
-                      course.thumbnailUrl ||
-                      "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=200&auto=format&fit=crop"
-                    }
-                    alt=""
-                    className="h-12 w-16 rounded-md object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/dashboard/learner/course/${course.id}`}
-                      className="block truncate text-sm font-semibold text-ink hover:text-forest"
-                    >
-                      {course.title}
-                    </Link>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                      {course._count?.lessons ?? course.lessons?.length ?? 0} lessons ·{" "}
-                      {formatUSD(course.pricePerMinute)} / min · {course.status.toLowerCase()}
-                    </p>
-                  </div>
-                  <span className="font-mono text-xs text-muted">
-                    {course._count?.enrollments ?? 0} learners
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <div className="ledger-card overflow-hidden bg-surface">
-            <div className="flex items-center justify-between border-b border-rule px-5 py-4">
-              <h2 className="font-serif text-lg font-bold text-ink">Live sessions</h2>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-forest">
-                <Radio className="h-3.5 w-3.5" /> {activeSessions.length}
-              </span>
-            </div>
-            {activeSessions.length === 0 ? (
-              <p className="p-5 text-xs text-muted">
-                No learner is streaming a paid session right now.
+              <p className="text-5xl font-mono font-light tracking-tight text-foreground">$1,240.50</p>
+              <p className="text-xs text-muted mt-3 flex items-center gap-2">
+                <span className="text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded">+12%</span> from last month
               </p>
-            ) : (
-              <ul className="divide-y divide-rule">
-                {activeSessions.map((session) => (
-                  <li key={session.sessionId} className="px-5 py-3">
-                    <p className="truncate text-sm font-medium text-ink">{session.studentName}</p>
-                    <p className="truncate text-[11px] text-muted">{session.courseTitle}</p>
-                    <p className="mt-1 font-mono text-xs font-semibold tabular-nums text-forest">
-                      +{formatUSD(session.earned)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="ledger-card overflow-hidden bg-surface">
-            <div className="border-b border-rule px-5 py-4">
-              <h2 className="font-serif text-lg font-bold text-ink">Recent activity</h2>
             </div>
-            {isLoading ? (
-              <div className="space-y-2 p-5">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-10 animate-pulse rounded bg-rule/30" />
-                ))}
-              </div>
-            ) : history.length === 0 ? (
-              <p className="p-5 text-xs text-muted">No completed sessions yet.</p>
-            ) : (
-              <ul className="divide-y divide-rule">
-                {history.slice(0, 6).map((session) => (
-                  <li key={session.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-ink">{session.studentName}</p>
-                      <p className="truncate text-[11px] text-muted">{session.courseTitle}</p>
-                      <p className="text-[10px] text-muted">{formatWhen(session.endedAt)}</p>
-                    </div>
-                    <span className="font-mono text-xs font-semibold tabular-nums text-forest">
-                      +{formatUSD(session.creatorEarnings)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
+        
+        {/* Active Learners */}
+        <div className="p-6 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-colors flex flex-col justify-between relative">
+          <div className="flex items-center gap-2 text-muted/60 mb-4">
+            <BarChart3 className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wider font-semibold">{t.activeLearners}</span>
+          </div>
+          <div>
+            <p className="text-5xl font-mono font-light tracking-tight text-foreground">842</p>
+            <p className="text-xs text-muted mt-3 flex items-center gap-2">
+              <span className="text-foreground/70">+5%</span> from last week
+            </p>
+          </div>
+        </div>
+
+        {/* Active Engagement */}
+        <div className="p-6 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-colors flex flex-col justify-between relative">
+          <div className="flex items-center gap-2 text-muted/60 mb-4">
+            <Clock className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wider font-semibold">{t.activeEngagement}</span>
+          </div>
+          <div>
+            <p className="text-5xl font-mono font-light tracking-tight text-foreground">12.4<span className="text-muted/40">k</span></p>
+            <p className="text-xs text-muted mt-3 flex items-center gap-2">
+              <span className="text-muted">{t.engagementDesc}</span>
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 relative">
+        
+        {/* Subtle separator line above */}
+        <div className="absolute -top-5 left-0 w-full h-[1px] bg-gradient-to-r from-white/5 via-white/10 to-transparent" />
+
+        {/* Content List */}
+        <div className="lg:col-span-2 space-y-6 pt-2">
+          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{t.publishedContent}</h2>
+            <Link href="/coming-soon" className="text-xs text-primary hover:underline flex items-center gap-1 transition-colors">
+              {t.viewAll} <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          
+          <div className="space-y-3">
+            
+            {/* Content Item 1: Video */}
+            <div className="flex items-center gap-6 p-4 rounded-xl border border-transparent hover:border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer relative overflow-hidden">
+              <div className="w-16 h-16 bg-[#0c0c0c] rounded-lg relative flex items-center justify-center border border-white/5 group-hover:border-primary/20 transition-colors flex-shrink-0">
+                 <Play className="w-6 h-6 text-muted group-hover:text-primary transition-colors" />
+                 <div className="absolute -top-1.5 -right-1.5 text-[8px] font-bold font-mono bg-primary/20 text-primary px-1 rounded backdrop-blur-sm">VID</div>
+              </div>
+              <div className="flex-1 space-y-2 relative z-10">
+                <h3 className="font-semibold text-base leading-tight text-foreground group-hover:text-primary transition-colors">Intro to Python</h3>
+                <div className="flex items-center gap-4 text-xs text-muted">
+                  <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> 8,400 {t.minsEngaged}</span>
+                  <span className="flex items-center gap-1.5"><DollarSign className="w-3 h-3 text-primary" /> $840 {t.earned}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent my-1" />
+
+            {/* Content Item 2: Ebook */}
+            <div className="flex items-center gap-6 p-4 rounded-xl border border-transparent hover:border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer relative overflow-hidden">
+              <div className="w-16 h-16 bg-[#0c0c0c] rounded-lg relative flex items-center justify-center border border-white/5 group-hover:border-primary/20 transition-colors flex-shrink-0">
+                 <FileText className="w-6 h-6 text-muted group-hover:text-primary transition-colors" />
+                 <div className="absolute -top-1.5 -right-1.5 text-[8px] font-bold font-mono bg-primary/20 text-primary px-1 rounded backdrop-blur-sm">PDF</div>
+              </div>
+              <div className="flex-1 space-y-2 relative z-10">
+                <h3 className="font-semibold text-base leading-tight text-foreground group-hover:text-primary transition-colors">10x Designer Handbook</h3>
+                <div className="flex items-center gap-4 text-xs text-muted">
+                  <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> 4,000 {t.minsEngaged}</span>
+                  <span className="flex items-center gap-1.5"><DollarSign className="w-3 h-3 text-primary" /> $200 {t.earned}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Live Activity Feed */}
+        <div className="space-y-6 pt-2">
+          <div className="border-b border-white/5 pb-4">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{t.activityFeed}</h2>
+          </div>
+          
+          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-[1px] before:bg-gradient-to-b before:from-primary/50 before:via-white/10 before:to-transparent pt-2">
+            
+            {/* Feed Item 1 */}
+            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-primary/30 bg-[#0A0A0A] text-primary absolute left-0 md:left-1/2 -translate-x-1/2 shadow-[0_0_10px_rgba(0,212,200,0.3)]">
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+              </div>
+              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 text-sm">
+                <p className="text-muted leading-relaxed">
+                  <span className="font-medium text-foreground">Alex</span> finished <span className="font-medium text-foreground">Intro to Python</span>
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">+$4.50</span>
+                  <span className="text-xs text-muted/50">2m ago</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feed Item 2 */}
+            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-white/10 bg-[#0A0A0A] absolute left-0 md:left-1/2 -translate-x-1/2">
+                <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 md:text-right text-sm">
+                <p className="text-muted leading-relaxed">
+                  <span className="font-medium text-foreground">Sarah</span> started watching <span className="font-medium text-foreground">Advanced React</span>
+                </p>
+                <div className="flex items-center justify-start md:justify-end gap-2 mt-1">
+                  <span className="text-xs text-muted/50">15m ago</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feed Item 3 */}
+            <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+              <div className="flex items-center justify-center w-4 h-4 rounded-full border border-white/10 bg-[#0A0A0A] absolute left-0 md:left-1/2 -translate-x-1/2">
+                <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+              </div>
+              <div className="w-[calc(100%-2rem)] md:w-[calc(50%-2rem)] pl-4 md:pl-0 md:pr-4 ml-auto md:ml-0 text-sm">
+                <p className="text-muted leading-relaxed">
+                  <span className="font-medium text-foreground">Marcus</span> purchased <span className="font-medium text-foreground">Intro to Python</span>
+                </p>
+                <div className="flex items-center justify-start gap-2 mt-1">
+                  <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">+$0.10/m</span>
+                  <span className="text-xs text-muted/50">1h ago</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* Local Interactive Feedback Section */}
+      <section className="pt-8 border-t border-white/5">
+        <div className="glass p-8 rounded-3xl border border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-10">
+          
+          {/* Feedback Form */}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                {t.feedbackTitle}
+              </h3>
+              <p className="text-sm text-muted leading-relaxed">
+                {t.feedbackDesc}
+              </p>
+            </div>
+
+            <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+              {/* Star selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted">{t.ratingLabel}</label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="text-2xl transition-transform hover:scale-115 focus:outline-none cursor-pointer"
+                    >
+                      <Star 
+                        className={`w-8 h-8 ${
+                          star <= (hoverRating || rating)
+                            ? 'text-primary fill-primary filter drop-shadow-[0_0_8px_rgba(0,212,200,0.4)]'
+                            : 'text-muted/40'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category selector */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted">{t.categoryLabel}</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    <option value="monetization">{t.monetization}</option>
+                    <option value="translations">{t.translations}</option>
+                    <option value="uiux">{t.uiux}</option>
+                    <option value="other">{t.other}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Suggestions text area */}
+              <div className="space-y-1">
+                <textarea
+                  required
+                  rows={4}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder={t.feedbackPlaceholder}
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted"
+                />
+              </div>
+
+              {feedbackSuccess && (
+                <div className="text-sm font-semibold text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
+                  {t.feedbackSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={rating === 0}
+                className="px-6 py-3 bg-primary text-black font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 cursor-pointer text-sm"
+              >
+                {t.submitFeedback}
+              </button>
+            </form>
+          </div>
+
+          {/* Feedback ledger log list */}
+          <div className="flex flex-col h-full space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted">{t.recentFeedback}</h4>
+            <div className="flex-1 overflow-y-auto max-h-[300px] pr-2 space-y-3 scrollbar-thin">
+              {feedbacks.map((f) => (
+                <div key={f.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2 text-sm animate-in fade-in">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20 uppercase tracking-widest">{t[f.category as keyof typeof t] || f.category}</span>
+                    <span className="text-muted/60">{f.timestamp}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className={`w-3.5 h-3.5 ${i < f.rating ? 'text-primary fill-primary' : 'text-muted/20'}`} />
+                    ))}
+                  </div>
+                  <p className="text-muted leading-relaxed font-sans">{f.comment}</p>
+                </div>
+              ))}
+
+              {feedbacks.length === 0 && (
+                <div className="h-full flex items-center justify-center text-center text-muted/50 py-12">
+                  <p>No feedback logged yet in this local session.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
       </section>
+
     </div>
   );
 }
