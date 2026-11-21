@@ -4,7 +4,6 @@ import { env } from "./config/env";
 import { prisma } from "./config/prisma";
 import { initSocketServer } from "./socket/index";
 import { logger } from "./utils/logger";
-import { LedgerService } from "./services/ledger.service";
 
 /**
  * Server entrypoint.
